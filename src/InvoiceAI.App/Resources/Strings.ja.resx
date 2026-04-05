@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+
+  <!-- App -->
+  <data name="AppName" xml:space="preserve"><value>InvoiceAI - インボイス智能管理</value></data>
+
+  <!-- Navigation -->
+  <data name="AllCategories" xml:space="preserve"><value>すべて</value></data>
+  <data name="Import" xml:space="preserve"><value>インポート</value></data>
+  <data name="Export" xml:space="preserve"><value>エクスポート</value></data>
+  <data name="Search" xml:space="preserve"><value>検索</value></data>
+  <data name="Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Edit" xml:space="preserve"><value>編集</value></data>
+  <data name="Delete" xml:space="preserve"><value>削除</value></data>
+  <data name="Retry" xml:space="preserve"><value>再認識</value></data>
+  <data name="Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Confirm" xml:space="preserve"><value>確認</value></data>
+  <data name="Close" xml:space="preserve"><value>閉じる</value></data>
+
+  <!-- Invoice Detail -->
+  <data name="IssuerName" xml:space="preserve"><value>発行事業者</value></data>
+  <data name="RegistrationNumber" xml:space="preserve"><value>登録番号</value></data>
+  <data name="TransactionDate" xml:space="preserve"><value>取引年月日</value></data>
+  <data name="Description" xml:space="preserve"><value>内容</value></data>
+  <data name="Category" xml:space="preserve"><value>カテゴリ</value></data>
+  <data name="TaxExcludedAmount" xml:space="preserve"><value>税抜金額</value></data>
+  <data name="TaxIncludedAmount" xml:space="preserve"><value>税込金額</value></data>
+  <data name="TaxAmount" xml:space="preserve"><value>消費税額</value></data>
+  <data name="InvoiceType" xml:space="preserve"><value>適格状態</value></data>
+  <data name="MissingFields" xml:space="preserve"><value>欠落項目</value></data>
+  <data name="RecipientName" xml:space="preserve"><value>書類の交付を受ける事業者</value></data>
+
+  <!-- Invoice Type -->
+  <data name="Standard" xml:space="preserve"><value>標準インボイス</value></data>
+  <data name="Simplified" xml:space="preserve"><value>簡易インボイス</value></data>
+  <data name="NonQualified" xml:space="preserve"><value>非適格</value></data>
+
+  <!-- Import -->
+  <data name="DragDropHint" xml:space="preserve"><value>インボイスファイルをここにドラッグ＆ドロップ、またはインポートをクリック</value></data>
+  <data name="Processing" xml:space="preserve"><value>処理中...</value></data>
+  <data name="ImportComplete" xml:space="preserve"><value>処理完了</value></data>
+  <data name="RecentImports" xml:space="preserve"><value>今回の認識結果</value></data>
+  <data name="History" xml:space="preserve"><value>履歴</value></data>
+  <data name="NoInvoices" xml:space="preserve"><value>インボイス記録がありません</value></data>
+
+  <!-- Settings -->
+  <data name="BaiduOcrSettings" xml:space="preserve"><value>Baidu OCR 設定</value></data>
+  <data name="GlmSettings" xml:space="preserve"><value>GLM API 設定</value></data>
+  <data name="ApiKey" xml:space="preserve"><value>API Key</value></data>
+  <data name="SecretKey" xml:space="preserve"><value>Secret Key</value></data>
+  <data name="Endpoint" xml:space="preserve"><value>エンドポイント</value></data>
+  <data name="Model" xml:space="preserve"><value>モデル</value></data>
+  <data name="TestConnection" xml:space="preserve"><value>接続テスト</value></data>
+  <data name="Language" xml:space="preserve"><value>言語</value></data>
+  <data name="Chinese" xml:space="preserve"><value>中文</value></data>
+  <data name="Japanese" xml:space="preserve"><value>日本語</value></data>
+  <data name="CategoryManagement" xml:space="preserve"><value>カテゴリ管理</value></data>
+  <data name="AddCategory" xml:space="preserve"><value>カテゴリ追加</value></data>
+  <data name="RemoveCategory" xml:space="preserve"><value>削除</value></data>
+  <data name="DataPath" xml:space="preserve"><value>データディレクトリ</value></data>
+  <data name="Backup" xml:space="preserve"><value>データベースバックアップ</value></data>
+  <data name="OpenDataFolder" xml:space="preserve"><value>データフォルダを開く</value></data>
+  <data name="ExportFilter" xml:space="preserve"><value>エクスポート範囲</value></data>
+  <data name="ExportAll" xml:space="preserve"><value>すべて</value></data>
+  <data name="ExportCurrentCategory" xml:space="preserve"><value>現在のカテゴリ</value></data>
+  <data name="ExportDateRange" xml:space="preserve"><value>期間指定</value></data>
+</root>
