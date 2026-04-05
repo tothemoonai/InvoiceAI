@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+
+  <!-- App -->
+  <data name="AppName" xml:space="preserve"><value>InvoiceAI - 发票智能管理</value></data>
+
+  <!-- Navigation -->
+  <data name="AllCategories" xml:space="preserve"><value>全部</value></data>
+  <data name="Import" xml:space="preserve"><value>导入</value></data>
+  <data name="Export" xml:space="preserve"><value>导出Excel</value></data>
+  <data name="Search" xml:space="preserve"><value>搜索</value></data>
+  <data name="Settings" xml:space="preserve"><value>设置</value></data>
+  <data name="Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Retry" xml:space="preserve"><value>重新识别</value></data>
+  <data name="Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="Close" xml:space="preserve"><value>关闭</value></data>
+
+  <!-- Invoice Detail -->
+  <data name="IssuerName" xml:space="preserve"><value>発行事業者</value></data>
+  <data name="RegistrationNumber" xml:space="preserve"><value>登録番号</value></data>
+  <data name="TransactionDate" xml:space="preserve"><value>取引年月日</value></data>
+  <data name="Description" xml:space="preserve"><value>内容</value></data>
+  <data name="Category" xml:space="preserve"><value>分类</value></data>
+  <data name="TaxExcludedAmount" xml:space="preserve"><value>税抜金額</value></data>
+  <data name="TaxIncludedAmount" xml:space="preserve"><value>税込金額</value></data>
+  <data name="TaxAmount" xml:space="preserve"><value>消費税額</value></data>
+  <data name="InvoiceType" xml:space="preserve"><value>适格状态</value></data>
+  <data name="MissingFields" xml:space="preserve"><value>缺失项</value></data>
+  <data name="RecipientName" xml:space="preserve"><value>交付を受ける事業者</value></data>
+
+  <!-- Invoice Type -->
+  <data name="Standard" xml:space="preserve"><value>標準インボイス</value></data>
+  <data name="Simplified" xml:space="preserve"><value>簡易インボイス</value></data>
+  <data name="NonQualified" xml:space="preserve"><value>非适格</value></data>
+
+  <!-- Import -->
+  <data name="DragDropHint" xml:space="preserve"><value>拖拽发票文件到此处，或点击导入</value></data>
+  <data name="Processing" xml:space="preserve"><value>正在处理...</value></data>
+  <data name="ImportComplete" xml:space="preserve"><value>处理完成</value></data>
+  <data name="RecentImports" xml:space="preserve"><value>本次识别结果</value></data>
+  <data name="History" xml:space="preserve"><value>历史记录</value></data>
+  <data name="NoInvoices" xml:space="preserve"><value>暂无发票记录</value></data>
+
+  <!-- Settings -->
+  <data name="BaiduOcrSettings" xml:space="preserve"><value>百度 OCR 设置</value></data>
+  <data name="GlmSettings" xml:space="preserve"><value>GLM API 设置</value></data>
+  <data name="ApiKey" xml:space="preserve"><value>API Key</value></data>
+  <data name="SecretKey" xml:space="preserve"><value>Secret Key</value></data>
+  <data name="Endpoint" xml:space="preserve"><value>端点地址</value></data>
+  <data name="Model" xml:space="preserve"><value>模型</value></data>
+  <data name="TestConnection" xml:space="preserve"><value>测试连接</value></data>
+  <data name="Language" xml:space="preserve"><value>语言</value></data>
+  <data name="Chinese" xml:space="preserve"><value>中文</value></data>
+  <data name="Japanese" xml:space="preserve"><value>日本語</value></data>
+  <data name="CategoryManagement" xml:space="preserve"><value>分类管理</value></data>
+  <data name="AddCategory" xml:space="preserve"><value>添加分类</value></data>
+  <data name="RemoveCategory" xml:space="preserve"><value>删除</value></data>
+  <data name="DataPath" xml:space="preserve"><value>数据目录</value></data>
+  <data name="Backup" xml:space="preserve"><value>备份数据库</value></data>
+  <data name="OpenDataFolder" xml:space="preserve"><value>打开数据目录</value></data>
+  <data name="ExportFilter" xml:space="preserve"><value>导出范围</value></data>
+  <data name="ExportAll" xml:space="preserve"><value>全部</value></data>
+  <data name="ExportCurrentCategory" xml:space="preserve"><value>当前分类</value></data>
+  <data name="ExportDateRange" xml:space="preserve"><value>指定时间范围</value></data>
+</root>

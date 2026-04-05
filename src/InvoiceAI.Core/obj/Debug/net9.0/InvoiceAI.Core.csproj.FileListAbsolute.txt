@@ -1,0 +1,17 @@
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Core.deps.json
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Core.dll
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Core.pdb
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Data.dll
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Models.dll
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Data.pdb
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\bin\Debug\net9.0\InvoiceAI.Models.pdb
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.csproj.AssemblyReference.cache
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.AssemblyInfoInputs.cache
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.AssemblyInfo.cs
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.csproj.CoreCompileInputs.cache
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceA.F01E9D6F.Up2Date
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.dll
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\refint\InvoiceAI.Core.dll
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\InvoiceAI.Core.pdb
+C:\ClaudeCodeProject\InvoiceAI\src\InvoiceAI.Core\obj\Debug\net9.0\ref\InvoiceAI.Core.dll

@@ -1,0 +1,51 @@
+智谱AI 开放平台的通用 API 端点如下： https://open.bigmodel.cn/api/paas/v4
+Authorization: bf922d0a7cc14abebf81782131a4b61f.I5yho0Ylq0D9wJ4r
+
+https://docs.bigmodel.cn/cn/api/introduction
+
+glm-4.7
+https://docs.bigmodel.cn/cn/guide/models/text/glm-4.7
+
+https://build.nvidia.com/z-ai/glm4_7/modelcard
+
+
+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
+
+
+from openai import OpenAI
+import os
+import sys
+
+_USE_COLOR = sys.stdout.isatty() and os.getenv("NO_COLOR") is None
+_REASONING_COLOR = "\033[90m" if _USE_COLOR else ""
+_RESET_COLOR = "\033[0m" if _USE_COLOR else ""
+
+client = OpenAI(
+  base_url = "https://integrate.api.nvidia.com/v1",
+  api_key = "$NVIDIA_API_KEY"
+)
+
+
+completion = client.chat.completions.create(
+  model="z-ai/glm4.7",
+  messages=[{"role":"user","content":""}],
+  temperature=1,
+  top_p=1,
+  max_tokens=16384,
+  extra_body={"chat_template_kwargs":{"enable_thinking":True,"clear_thinking":False}},
+  stream=True
+)
+
+for chunk in completion:
+  if not getattr(chunk, "choices", None):
+    continue
+  if len(chunk.choices) == 0 or getattr(chunk.choices[0], "delta", None) is None:
+    continue
+  delta = chunk.choices[0].delta
+  reasoning = getattr(delta, "reasoning_content", None)
+  if reasoning:
+    print(f"{_REASONING_COLOR}{reasoning}{_RESET_COLOR}", end="")
+  if getattr(delta, "content", None) is not None:
+    print(delta.content, end="")
+  
+

@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet *)",
+      "Bash(claude *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(sed *)",
+      "Bash(echo *)",
+      "Bash(pwd *)",
+      "Bash(curl *)",
+      "Edit(*.cs)",
+      "Edit(*.xaml)",
+      "Edit(*.md)",
+      "Edit(*.json)",
+      "Write(*)",
+      "Read(*)",
+      "Glob(**/*)",
+      "Grep(**/*)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet workload:*)",
+      "Bash(dotnet new:*)",
+      "Bash(cd:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(ls:*)",
+      "Bash(dotnet build:*)"
+    ]
+  }
+}
