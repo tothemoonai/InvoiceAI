@@ -92,7 +92,7 @@ public class SettingsViewModelTests
         settingsMock.Setup(s => s.Settings).Returns(new AppSettings());
         settingsMock.Setup(s => s.SaveAsync()).Returns(Task.CompletedTask);
         var vm = new SettingsViewModel(settingsMock.Object);
-        vm.BaiduApiKey = "test-key";
+        vm.BaiduToken = "test-token";
         vm.GlmApiKey = "glm-key";
         await vm.SaveCommand.ExecuteAsync(null);
         settingsMock.Verify(s => s.SaveAsync(), Times.Once);
@@ -104,8 +104,8 @@ public class SettingsViewModelTests
     {
         var ocrMock = new Mock<IBaiduOcrService>();
         var vm = new SettingsViewModel(CreateSettingsService(), ocrMock.Object, httpClient: new HttpClient());
-        vm.BaiduApiKey = "";
-        vm.BaiduSecretKey = "";
+        vm.BaiduToken = "";
+        vm.BaiduEndpoint = "";
         await vm.TestBaiduConnectionCommand.ExecuteAsync(null);
         Assert.Contains("请填写", vm.TestResult);
     }

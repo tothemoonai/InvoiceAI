@@ -64,10 +64,10 @@
   <data name="NoInvoices" xml:space="preserve"><value>暂无发票记录</value></data>
 
   <!-- Settings -->
-  <data name="BaiduOcrSettings" xml:space="preserve"><value>百度 OCR 设置</value></data>
+  <data name="BaiduOcrSettings" xml:space="preserve"><value>PaddleOCR 设置</value></data>
   <data name="GlmSettings" xml:space="preserve"><value>GLM API 设置</value></data>
   <data name="ApiKey" xml:space="preserve"><value>API Key</value></data>
-  <data name="SecretKey" xml:space="preserve"><value>Secret Key</value></data>
+  <data name="Token" xml:space="preserve"><value>Token</value></data>
   <data name="Endpoint" xml:space="preserve"><value>端点地址</value></data>
   <data name="Model" xml:space="preserve"><value>模型</value></data>
   <data name="TestConnection" xml:space="preserve"><value>测试连接</value></data>
