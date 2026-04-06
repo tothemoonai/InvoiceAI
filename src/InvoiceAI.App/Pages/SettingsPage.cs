@@ -20,6 +20,12 @@ public class SettingsPage : ContentPage
         Content = BuildContent();
     }
 
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _vm.ReloadFromSettings();
+    }
+
     private ScrollView BuildContent()
     {
         return new ScrollView
