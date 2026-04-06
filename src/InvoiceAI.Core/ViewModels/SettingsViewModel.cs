@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net.Http.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using InvoiceAI.Core.Helpers;
@@ -24,8 +25,8 @@ public partial class SettingsViewModel : ObservableObject
         _glmService = glmService;
         _httpClient = httpClient;
         var s = _settingsService.Settings;
-        _baiduApiKey = s.BaiduOcr.ApiKey;
-        _baiduSecretKey = s.BaiduOcr.SecretKey;
+        _baiduToken = s.BaiduOcr.Token;
+        _baiduEndpoint = s.BaiduOcr.Endpoint;
         _glmApiKey = s.Glm.ApiKey;
         _glmEndpoint = s.Glm.Endpoint;
         _glmModel = s.Glm.Model;
@@ -33,8 +34,8 @@ public partial class SettingsViewModel : ObservableObject
         _categories = new ObservableCollection<string>(s.Categories);
     }
 
-    [ObservableProperty] private string _baiduApiKey = string.Empty;
-    [ObservableProperty] private string _baiduSecretKey = string.Empty;
+    [ObservableProperty] private string _baiduToken = string.Empty;
+    [ObservableProperty] private string _baiduEndpoint = string.Empty;
     [ObservableProperty] private string _glmApiKey = string.Empty;
     [ObservableProperty] private string _glmEndpoint = string.Empty;
     [ObservableProperty] private string _glmModel = string.Empty;
@@ -70,8 +71,8 @@ public partial class SettingsViewModel : ObservableObject
     private async Task SaveAsync()
     {
         var s = _settingsService.Settings;
-        s.BaiduOcr.ApiKey = BaiduApiKey;
-        s.BaiduOcr.SecretKey = BaiduSecretKey;
+        s.BaiduOcr.Token = BaiduToken;
+        s.BaiduOcr.Endpoint = BaiduEndpoint;
         s.Glm.ApiKey = GlmApiKey;
         s.Glm.Endpoint = GlmEndpoint;
         s.Glm.Model = GlmModel;
@@ -90,30 +91,37 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(BaiduApiKey) || string.IsNullOrWhiteSpace(BaiduSecretKey))
+        if (string.IsNullOrWhiteSpace(BaiduToken) || string.IsNullOrWhiteSpace(BaiduEndpoint))
         {
-            TestResult = "请填写百度 API Key 和 Secret Key";
+            TestResult = "请填写 PaddleOCR Token 和端点地址";
             return;
         }
 
         try
         {
-            TestResult = "正在测试百度 OCR 连接...";
-            // Temporarily apply keys and test
+            TestResult = "正在测试 PaddleOCR 连接...";
+            // Temporarily apply settings
             var settings = _settingsService.Settings;
-            settings.BaiduOcr.ApiKey = BaiduApiKey;
-            settings.BaiduOcr.SecretKey = BaiduSecretKey;
+            settings.BaiduOcr.Token = BaiduToken;
+            settings.BaiduOcr.Endpoint = BaiduEndpoint;
 
-            // Try to get access token
-            var url = $"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={BaiduApiKey}&client_secret={BaiduSecretKey}";
-            var response = await _httpClient.PostAsync(url, null);
-            TestResult = response.IsSuccessStatusCode
-                ? "百度 OCR 连接成功"
-                : $"百度 OCR 连接失败: {response.StatusCode}";
+            // Test with a simple HTTP request to verify endpoint is reachable
+            using var request = new HttpRequestMessage(HttpMethod.Post, BaiduEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"token {BaiduToken}");
+            request.Content = JsonContent.Create(new { file = "", fileType = 1 });
+
+            var response = await _httpClient.SendAsync(request);
+            TestResult = response.StatusCode == System.Net.HttpStatusCode.OK
+                ? "PaddleOCR 连接成功"
+                : response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    ? "PaddleOCR Token 无效"
+                    : response.StatusCode == System.Net.HttpStatusCode.Forbidden
+                        ? "PaddleOCR 无权限或配额用尽"
+                        : $"PaddleOCR 连接失败: {response.StatusCode}";
         }
         catch (Exception ex)
         {
-            TestResult = $"百度 OCR 连接异常: {ex.Message}";
+            TestResult = $"PaddleOCR 连接异常: {ex.Message}";
         }
     }
 

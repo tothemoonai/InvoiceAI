@@ -30,10 +30,10 @@ public class SettingsPage : ContentPage
                 Spacing = 16,
                 Children =
                 {
-                    // ─── Baidu OCR Settings ──────────────────────
-                    BuildSectionHeader("百度 OCR 设置"),
-                    BuildEntryField("API Key", nameof(_vm.BaiduApiKey), "BaiduApiKey"),
-                    BuildEntryField("Secret Key", nameof(_vm.BaiduSecretKey), "BaiduSecretKey", isPassword: true),
+                    // ─── PaddleOCR Settings ──────────────────────
+                    BuildSectionHeader("PaddleOCR 设置"),
+                    BuildEntryField("Token", nameof(_vm.BaiduToken), "PaddleOCR Token"),
+                    BuildEntryField("端点地址", nameof(_vm.BaiduEndpoint), "https://aistudio.baidu.com/...", isPassword: false),
                     BuildTestButton("测试 OCR 连接", nameof(_vm.TestBaiduConnectionCommand)),
 
                     // ─── GLM Settings ────────────────────────────

@@ -14,8 +14,8 @@ public class AppSettings
 
 public class BaiduOcrSettings
 {
-    public string ApiKey { get; set; } = string.Empty;
-    public string SecretKey { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+    public string Endpoint { get; set; } = string.Empty;
 }
 
 public class GlmSettings

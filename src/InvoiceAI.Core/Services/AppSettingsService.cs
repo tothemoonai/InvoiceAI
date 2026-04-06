@@ -6,8 +6,7 @@ namespace InvoiceAI.Core.Services;
 public class AppSettingsService : IAppSettingsService
 {
     private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "InvoiceAI", "appsettings.json");
+        AppContext.BaseDirectory, "appsettings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

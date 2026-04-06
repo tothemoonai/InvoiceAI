@@ -64,10 +64,10 @@
   <data name="NoInvoices" xml:space="preserve"><value>インボイス記録がありません</value></data>
 
   <!-- Settings -->
-  <data name="BaiduOcrSettings" xml:space="preserve"><value>Baidu OCR 設定</value></data>
+  <data name="BaiduOcrSettings" xml:space="preserve"><value>PaddleOCR 設定</value></data>
   <data name="GlmSettings" xml:space="preserve"><value>GLM API 設定</value></data>
   <data name="ApiKey" xml:space="preserve"><value>API Key</value></data>
-  <data name="SecretKey" xml:space="preserve"><value>Secret Key</value></data>
+  <data name="Token" xml:space="preserve"><value>Token</value></data>
   <data name="Endpoint" xml:space="preserve"><value>エンドポイント</value></data>
   <data name="Model" xml:space="preserve"><value>モデル</value></data>
   <data name="TestConnection" xml:space="preserve"><value>接続テスト</value></data>

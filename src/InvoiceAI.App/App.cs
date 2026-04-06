@@ -16,15 +16,13 @@ public partial class App : Application
         _settingsService = settingsService;
         _dbContext = dbContext;
         _services = services;
-
-        // Initialize database and settings synchronously before any UI is created
-        _settingsService.LoadAsync().GetAwaiter().GetResult();
-        _dbContext.Database.EnsureCreatedAsync().GetAwaiter().GetResult();
     }
 
-    protected override void OnStart()
+    protected override async void OnStart()
     {
         base.OnStart();
+        await _settingsService.LoadAsync();
+        await _dbContext.Database.EnsureCreatedAsync();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
@@ -44,7 +42,6 @@ public partial class App : Application
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"CreateWindow error: {ex}");
-            // Write crash info to file for diagnosis
             System.IO.File.WriteAllText(
                 System.IO.Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
