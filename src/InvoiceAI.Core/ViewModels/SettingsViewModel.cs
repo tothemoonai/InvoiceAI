@@ -44,6 +44,18 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _newCategory = string.Empty;
     [ObservableProperty] private string _testResult = string.Empty;
 
+    public void ReloadFromSettings()
+    {
+        var s = _settingsService.Settings;
+        BaiduToken = s.BaiduOcr.Token;
+        BaiduEndpoint = s.BaiduOcr.Endpoint;
+        GlmApiKey = s.Glm.ApiKey;
+        GlmEndpoint = s.Glm.Endpoint;
+        GlmModel = s.Glm.Model;
+        SelectedLanguage = s.Language;
+        Categories = new ObservableCollection<string>(s.Categories);
+    }
+
     // Language helpers
     public bool IsChineseLanguage
     {
