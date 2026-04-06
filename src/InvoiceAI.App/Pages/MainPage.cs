@@ -41,7 +41,7 @@ public class MainPage : ContentPage
         BuildUI();
         WireEvents();
 
-        _vm.LoadDataCommand.Execute(null);
+        _vm.LoadDataCommand.Execute(null);  // fire-and-forget, UI will update when data arrives
     }
 
     // ─── UI Construction ──────────────────────────────────────
@@ -658,7 +658,6 @@ public class MainPage : ContentPage
                 }
             }
         };
-        overlay.SetBinding(IsVisibleProperty, nameof(_importVm.IsProcessing));
 
         return overlay;
     }
@@ -811,7 +810,14 @@ public class MainPage : ContentPage
 
         _importVm.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(_importVm.IsProcessing) && !_importVm.IsProcessing)
+            if (e.PropertyName == nameof(_importVm.IsProcessing))
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    _importOverlay.IsVisible = _importVm.IsProcessing;
+                });
+            }
+            if (!_importVm.IsProcessing)
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {

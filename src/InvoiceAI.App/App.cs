@@ -16,26 +16,42 @@ public partial class App : Application
         _settingsService = settingsService;
         _dbContext = dbContext;
         _services = services;
+
+        // Initialize database and settings synchronously before any UI is created
+        _settingsService.LoadAsync().GetAwaiter().GetResult();
+        _dbContext.Database.EnsureCreatedAsync().GetAwaiter().GetResult();
     }
 
-    protected override async void OnStart()
+    protected override void OnStart()
     {
         base.OnStart();
-        await _settingsService.LoadAsync();
-        await _dbContext.Database.EnsureCreatedAsync();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var page = Handler.MauiContext.Services.GetRequiredService<Pages.MainPage>();
-        var navPage = new NavigationPage(page);
-        var window = new Window(navPage);
+        try
+        {
+            var page = Handler.MauiContext.Services.GetRequiredService<Pages.MainPage>();
+            var navPage = new NavigationPage(page);
+            var window = new Window(navPage);
 
 #if WINDOWS
-        SetupWindowsDragDrop(window);
+            SetupWindowsDragDrop(window);
 #endif
 
-        return window;
+            return window;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"CreateWindow error: {ex}");
+            // Write crash info to file for diagnosis
+            System.IO.File.WriteAllText(
+                System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "InvoiceAI", "startup_crash.log"),
+                $"{DateTime.Now:O}\n{ex}");
+            throw;
+        }
     }
 
 #if WINDOWS
