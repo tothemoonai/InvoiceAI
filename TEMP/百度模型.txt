@@ -1,4 +1,0 @@
-API 配额规则和错误码说明:https://ai.baidu.com/ai-doc/AISTUDIO/Xmjclapam
-PaddleOCR-VL-1.5_API :https://ai.baidu.com/ai-doc/AISTUDIO/Cmkz2m0ma
-
-Access Token = 22f2f0b1dad4c0685283d7fec60a3b8149d91ffe

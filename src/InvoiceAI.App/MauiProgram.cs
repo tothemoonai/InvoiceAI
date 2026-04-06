@@ -29,14 +29,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<IInvoiceService, InvoiceService>();
         builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
 
-        // ViewModels (transient — fresh per navigation)
-        builder.Services.AddTransient<MainViewModel>();
-        builder.Services.AddTransient<InvoiceDetailViewModel>();
-        builder.Services.AddTransient<ImportViewModel>();
-        builder.Services.AddTransient<SettingsViewModel>();
+        // ViewModels (singleton — shared state across MainPage)
+        builder.Services.AddSingleton<MainViewModel>();
+        builder.Services.AddSingleton<InvoiceDetailViewModel>();
+        builder.Services.AddSingleton<ImportViewModel>();
+        builder.Services.AddSingleton<SettingsViewModel>();
 
         // Pages (transient)
         builder.Services.AddTransient<Pages.MainPage>();
+        builder.Services.AddTransient<Pages.SettingsPage>();
 
         return builder.Build();
     }
