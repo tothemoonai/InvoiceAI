@@ -39,6 +39,16 @@ public class GlmInvoiceResponse
 
     [JsonPropertyName("suggestedCategory")]
     public string SuggestedCategory { get; set; } = "その他";
+
+    // Token usage (not from JSON, set by GlmService)
+    [JsonIgnore]
+    public int PromptTokens { get; set; }
+
+    [JsonIgnore]
+    public int CompletionTokens { get; set; }
+
+    [JsonIgnore]
+    public int TotalTokens { get; set; }
 }
 
 public class GlmInvoiceItem

@@ -7,6 +7,7 @@ public class BaiduOcrService : IBaiduOcrService
 {
     private readonly HttpClient _httpClient;
     private readonly IAppSettingsService _settingsService;
+    private static string LogDir => Helpers.LogHelper.LogDir;
 
     public BaiduOcrService(HttpClient httpClient, IAppSettingsService settingsService)
     {
@@ -75,7 +76,7 @@ public class BaiduOcrService : IBaiduOcrService
         var ocrText = string.Join("\n\n", texts);
 
         // Save OCR result to MD file
-        var ocrDir = Path.Combine(Path.GetTempPath(), "InvoiceAI", "ocr");
+        var ocrDir = Path.Combine(LogDir, "ocr");
         Directory.CreateDirectory(ocrDir);
         var fileName = Path.GetFileNameWithoutExtension(filePath);
         var mdPath = Path.Combine(ocrDir, $"{fileName}_{DateTime.Now:yyyyMMdd_HHmmss}.md");
