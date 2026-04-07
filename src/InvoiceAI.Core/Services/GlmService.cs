@@ -87,6 +87,97 @@ public class GlmService : IGlmService
         };
     }
 
+    public async Task<List<GlmInvoiceResponse>> ProcessBatchAsync(string[] ocrTexts)
+    {
+        if (ocrTexts.Length == 0) return [];
+        if (ocrTexts.Length == 1) return [await ProcessInvoiceAsync(ocrTexts[0])];
+
+        try
+        {
+            return await ProcessBatchCoreAsync(ocrTexts);
+        }
+        catch (Exception ex)
+        {
+            // Batch failed (504/timeout/etc), fallback to individual calls
+            var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
+            Directory.CreateDirectory(logDir);
+            await File.WriteAllTextAsync(Path.Combine(logDir, "glm_batch_error.txt"),
+                $"Batch failed, falling back to individual calls.\n{ex}");
+            var results = new List<GlmInvoiceResponse>();
+            foreach (var text in ocrTexts)
+                results.Add(await ProcessInvoiceAsync(text));
+            return results;
+        }
+    }
+
+    private async Task<List<GlmInvoiceResponse>> ProcessBatchCoreAsync(string[] ocrTexts)
+    {
+        var settings = _settingsService.Settings.Glm;
+        var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
+
+        var requestBody = new
+        {
+            model,
+            messages = new object[]
+            {
+                new { role = "system", content = InvoicePrompt.SystemPrompt },
+                new { role = "user", content = InvoicePrompt.BuildBatchUserMessage(ocrTexts) }
+            },
+            temperature = 0.1,
+            max_tokens = maxTokens
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Content = JsonContent.Create(requestBody);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(Math.Max(5, ocrTexts.Length * 3)));
+        var response = await _httpClient.SendAsync(request, cts.Token);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        // Save raw response
+        var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
+        Directory.CreateDirectory(logDir);
+        await File.WriteAllTextAsync(Path.Combine(logDir, "glm_batch_raw_response.json"), json.GetRawText());
+
+        var messageEl = json.GetProperty("choices")[0].GetProperty("message");
+        var content = messageEl.TryGetProperty("content", out var contentEl)
+            ? contentEl.GetString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(content) &&
+            messageEl.TryGetProperty("reasoning_content", out var reasoningEl))
+            content = reasoningEl.GetString() ?? "";
+
+        var jsonStr = ExtractJson(content);
+        if (jsonStr == null)
+        {
+            await File.WriteAllTextAsync(Path.Combine(logDir, "glm_batch_parse_failed.txt"),
+                $"Content:\n{content}\n\nRaw:\n{json.GetRawText()}");
+            // Fallback: process individually
+            var results = new List<GlmInvoiceResponse>();
+            foreach (var text in ocrTexts)
+                results.Add(await ProcessInvoiceAsync(text));
+            return results;
+        }
+
+        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        if (jsonStr.TrimStart().StartsWith('['))
+        {
+            var arr = JsonSerializer.Deserialize<List<GlmInvoiceResponse>>(jsonStr, opts);
+            if (arr != null && arr.Count > 0) return arr;
+        }
+
+        var single = JsonSerializer.Deserialize<GlmInvoiceResponse>(jsonStr, opts);
+        if (single != null) return [single];
+
+        // Fallback: process individually
+        var fallback = new List<GlmInvoiceResponse>();
+        foreach (var text in ocrTexts)
+            fallback.Add(await ProcessInvoiceAsync(text));
+        return fallback;
+    }
+
     /// <summary>
     /// Extracts the first valid JSON object from text, handling markdown code blocks and mixed content.
     /// </summary>

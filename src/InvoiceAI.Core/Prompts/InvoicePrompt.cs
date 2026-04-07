@@ -41,4 +41,20 @@ public static class InvoicePrompt
     {
         return $"请分析以下日本发票 OCR 识别文本，提取结构化信息并判断适格状态：\n\n{ocrText}";
     }
+
+    public static string BuildBatchUserMessage(string[] ocrTexts)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"请分析以下 {ocrTexts.Length} 张日本发票的 OCR 识别文本。");
+        sb.AppendLine("每张发票用 --- 分隔。请返回 JSON 数组，数组中每个元素对应一张发票的分析结果。");
+        sb.AppendLine("每张发票的分析结果遵循单张发票的 JSON 格式要求。");
+        sb.AppendLine();
+        for (int i = 0; i < ocrTexts.Length; i++)
+        {
+            sb.AppendLine($"### 发票 {i + 1}");
+            sb.AppendLine(ocrTexts[i]);
+            if (i < ocrTexts.Length - 1) sb.AppendLine("\n---\n");
+        }
+        return sb.ToString();
+    }
 }

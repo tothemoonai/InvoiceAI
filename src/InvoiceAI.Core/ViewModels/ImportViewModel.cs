@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using InvoiceAI.Core.Services;
@@ -9,6 +10,8 @@ namespace InvoiceAI.Core.ViewModels;
 
 public partial class ImportViewModel : ObservableObject
 {
+    private const int MaxFiles = 5;
+
     private readonly IBaiduOcrService _ocrService;
     private readonly IGlmService _glmService;
     private readonly IInvoiceService _invoiceService;
@@ -38,63 +41,180 @@ public partial class ImportViewModel : ObservableObject
         var supported = _fileService.FilterSupportedFiles(filePaths);
         if (supported.Count == 0) return;
 
+        // Limit to MaxFiles
+        if (supported.Count > MaxFiles)
+            supported = supported.Take(MaxFiles).ToList();
+
         IsProcessing = true;
         Results.Clear();
         ImportItems.Clear();
         foreach (var f in supported)
             ImportItems.Add(new ImportItem { FileName = Path.GetFileName(f), FilePath = f, Status = "等待中" });
 
-        for (int i = 0; i < supported.Count; i++)
+        var totalSw = Stopwatch.StartNew();
+        var n = supported.Count;
+
+        try
         {
-            if (!IsProcessing) break;
-            var filePath = supported[i];
-            var item = ImportItems[i];
+            // ── Phase 1: Compress images ──────────────────────────
+            var preparedPaths = new List<string>();
+            for (int i = 0; i < n; i++)
+            {
+                if (!IsProcessing) return;
+                UpdateProgress(i, n * 2 + 1);
+                StatusMessage = $"压缩图片 ({i + 1}/{n})...";
+                ImportItems[i].Status = "压缩中...";
+
+                try
+                {
+                    var prepared = await _fileService.PrepareForOcrAsync(supported[i]);
+                    preparedPaths.Add(prepared);
+                    ImportItems[i].Status = "压缩完成 ✓";
+                }
+                catch (Exception ex)
+                {
+                    preparedPaths.Add(supported[i]); // fallback to original
+                    ImportItems[i].Status = $"压缩失败，使用原图";
+                    LogError(supported[i], ex);
+                }
+            }
+
+            // ── Phase 2: OCR each image ───────────────────────────
+            var ocrResults = new (string Path, string Text, string Hash)[n];
+            var ocrSuccessIndices = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (!IsProcessing) return;
+                UpdateProgress(n + i, n * 2 + 1);
+                StatusMessage = $"OCR识别 ({i + 1}/{n}): {ImportItems[i].FileName}";
+                ImportItems[i].Status = "🔍 OCR识别中...";
+
+                try
+                {
+                    var hash = await _fileService.ComputeFileHashAsync(supported[i]);
+                    if (await _invoiceService.ExistsByHashAsync(hash))
+                    {
+                        ImportItems[i].Status = "⚠ 已存在（跳过）";
+                        ocrResults[i] = (supported[i], "", hash);
+                        continue;
+                    }
+
+                    var ocrSw = Stopwatch.StartNew();
+                    var ocrText = await _ocrService.RecognizeAsync(preparedPaths[i]);
+                    ocrSw.Stop();
+
+                    ocrResults[i] = (supported[i], ocrText, hash);
+                    ocrSuccessIndices.Add(i);
+                    ImportItems[i].Status = $"OCR完成 ({ocrSw.ElapsedMilliseconds}ms) ✓";
+                    LogTiming($"OCR {ImportItems[i].FileName}", ocrSw.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    ImportItems[i].Status = $"❌ OCR失败: {ex.Message}";
+                    ocrResults[i] = (supported[i], "", "");
+                    LogError(supported[i], ex);
+                }
+            }
+
+            if (ocrSuccessIndices.Count == 0)
+            {
+                StatusMessage = "没有成功的OCR结果";
+                IsProcessing = false;
+                return;
+            }
+
+            // ── Phase 3: Batch GLM analysis ───────────────────────
+            UpdateProgress(n * 2, n * 2 + 1);
+            foreach (var idx in ocrSuccessIndices)
+                ImportItems[idx].Status = "🤖 AI分析中...";
+
+            var glmSw = Stopwatch.StartNew();
+            var ocrTexts = ocrSuccessIndices.Select(i => ocrResults[i].Text).ToArray();
+            List<GlmInvoiceResponse> glmResults;
+
+            // Show elapsed time while waiting
+            var progressCts = new CancellationTokenSource();
+            _ = Task.Run(async () =>
+            {
+                while (!progressCts.Token.IsCancellationRequested)
+                {
+                    await Task.Delay(3000, progressCts.Token);
+                    if (progressCts.Token.IsCancellationRequested) break;
+                    var sec = (int)glmSw.Elapsed.TotalSeconds;
+                    StatusMessage = $"🤖 AI分析中... 已等待 {sec}s（批量 {ocrSuccessIndices.Count} 张）";
+                }
+            }, progressCts.Token);
+
             try
             {
-                Progress = (double)(i + 1) / supported.Count * 100;
-                StatusMessage = $"处理中 ({i + 1}/{supported.Count}): {Path.GetFileName(filePath)}";
-
-                // Check duplicate
-                var hash = await _fileService.ComputeFileHashAsync(filePath);
-                if (await _invoiceService.ExistsByHashAsync(hash))
-                {
-                    item.Status = "⚠ 已存在（跳过）";
-                    continue;
-                }
-
-                // OCR
-                item.Status = "🔍 OCR识别中...";
-                var ocrText = await _ocrService.RecognizeAsync(filePath);
-                item.Status = "🤖 AI分析中...";
-
-                // GLM
-                var glmResult = await _glmService.ProcessInvoiceAsync(ocrText);
-
-                // Map to Invoice
-                var invoice = MapToInvoice(glmResult, ocrText, filePath, hash);
-                invoice = await _invoiceService.SaveAsync(invoice);
-
-                Results.Add(invoice);
-                item.Status = "✅ 完成";
+                glmResults = await _glmService.ProcessBatchAsync(ocrTexts);
             }
             catch (Exception ex)
             {
-                item.Status = $"❌ 失败: {ex.Message}";
-                var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
-                Directory.CreateDirectory(logDir);
-                var innerMsg = ex.InnerException != null ? $"\nInner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}" : "";
-                System.IO.File.AppendAllText(
-                    Path.Combine(logDir, "import_error.log"),
-                    $"[{DateTime.Now:HH:mm:ss}] {filePath}: {ex.GetType().FullName}: {ex.Message}{innerMsg}\n{ex.StackTrace}\n\n");
+                progressCts.Cancel();
+                LogError("GLM batch", ex);
+                glmResults = [];
+                foreach (var idx in ocrSuccessIndices)
+                    ImportItems[idx].Status = $"❌ AI分析失败: {ex.Message}";
+                StatusMessage = $"AI分析失败: {Results.Count}/{n} 成功";
+                IsProcessing = false;
+                return;
             }
-        }
+            finally
+            {
+                progressCts.Cancel();
+            }
+            glmSw.Stop();
+            LogTiming($"GLM batch ({ocrSuccessIndices.Count} invoices)", glmSw.ElapsedMilliseconds);
 
-        StatusMessage = $"处理完成: {Results.Count}/{supported.Count} 成功";
-        IsProcessing = false;
+            // ── Map and save results ──────────────────────────────
+            for (int j = 0; j < ocrSuccessIndices.Count; j++)
+            {
+                if (j >= glmResults.Count) break;
+                var idx = ocrSuccessIndices[j];
+                var glm = glmResults[j];
+                var (_, ocrText, hash) = ocrResults[idx];
+
+                var invoice = MapToInvoice(glm, ocrText, supported[idx], hash);
+                invoice = await _invoiceService.SaveAsync(invoice);
+                Results.Add(invoice);
+                ImportItems[idx].Status = "✅ 完成";
+            }
+
+            UpdateProgress(n * 2 + 1, n * 2 + 1);
+            totalSw.Stop();
+            StatusMessage = $"处理完成: {Results.Count}/{n} 成功 (总耗时 {totalSw.ElapsedMilliseconds / 1000.0:F1}s)";
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
     }
+
+    private void UpdateProgress(int completed, int total)
+        => Progress = (double)completed / total * 100;
 
     [RelayCommand]
     private void Cancel() => IsProcessing = false;
+
+    private static void LogError(string filePath, Exception ex)
+    {
+        var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
+        Directory.CreateDirectory(logDir);
+        var innerMsg = ex.InnerException != null ? $"\nInner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}" : "";
+        System.IO.File.AppendAllText(
+            Path.Combine(logDir, "import_error.log"),
+            $"[{DateTime.Now:HH:mm:ss}] {filePath}: {ex.GetType().FullName}: {ex.Message}{innerMsg}\n{ex.StackTrace}\n\n");
+    }
+
+    private static void LogTiming(string label, long ms)
+    {
+        var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
+        Directory.CreateDirectory(logDir);
+        System.IO.File.AppendAllText(
+            Path.Combine(logDir, "timing.log"),
+            $"[{DateTime.Now:HH:mm:ss}] {label}: {ms}ms\n");
+    }
 
     private static Invoice MapToInvoice(GlmInvoiceResponse glm, string ocrText, string filePath, string hash)
     {

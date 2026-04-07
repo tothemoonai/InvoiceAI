@@ -853,10 +853,10 @@ public class MainPage : ContentPage
     {
         try
         {
-            var filePath = await PickFileAsync("选择发票文件");
-            if (filePath != null)
+            var filePaths = await PickFilesAsync("选择发票文件");
+            if (filePaths != null && filePaths.Length > 0)
             {
-                await _importVm.ProcessFilesCommand.ExecuteAsync(new[] { filePath });
+                await _importVm.ProcessFilesCommand.ExecuteAsync(filePaths);
             }
         }
         catch (Exception ex)
@@ -866,7 +866,7 @@ public class MainPage : ContentPage
     }
 
 #if WINDOWS
-    private async Task<string?> PickFileAsync(string title)
+    private async Task<string[]?> PickFilesAsync(string title)
     {
         var picker = new Windows.Storage.Pickers.FileOpenPicker();
         picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
@@ -876,7 +876,6 @@ public class MainPage : ContentPage
         picker.FileTypeFilter.Add(".png");
         picker.FileTypeFilter.Add(".pdf");
 
-        // Get window handle via the native WinUI3 window
         var win = this.Window;
         var platformWnd = win.Handler?.PlatformView;
         if (platformWnd is not Microsoft.UI.Xaml.Window xamlWindow)
@@ -885,14 +884,14 @@ public class MainPage : ContentPage
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xamlWindow);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
-        var file = await picker.PickSingleFileAsync();
-        return file?.Path;
+        var files = await picker.PickMultipleFilesAsync();
+        return files?.Select(f => f.Path).ToArray();
     }
 #else
-    private async Task<string?> PickFileAsync(string title)
+    private async Task<string[]?> PickFilesAsync(string title)
     {
-        var result = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = title });
-        return result?.FullPath;
+        var results = await FilePicker.Default.PickMultipleAsync(new PickOptions { PickerTitle = title });
+        return results?.Select(f => f.FullPath).ToArray();
     }
 #endif
 
