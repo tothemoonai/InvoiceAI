@@ -8,6 +8,8 @@ namespace InvoiceAI.App.Pages;
 public class SettingsPage : ContentPage
 {
     private readonly SettingsViewModel _vm;
+    private Label _ocrTestResult = null!;
+    private Label _glmTestResult = null!;
 
     public SettingsPage(SettingsViewModel viewModel)
     {
@@ -28,6 +30,22 @@ public class SettingsPage : ContentPage
 
     private ScrollView BuildContent()
     {
+        _ocrTestResult = new Label
+        {
+            FontSize = 13,
+            TextColor = Color.FromArgb("#388E3C"),
+            HorizontalOptions = LayoutOptions.Fill,
+            LineBreakMode = LineBreakMode.WordWrap
+        };
+
+        _glmTestResult = new Label
+        {
+            FontSize = 13,
+            TextColor = Color.FromArgb("#388E3C"),
+            HorizontalOptions = LayoutOptions.Fill,
+            LineBreakMode = LineBreakMode.WordWrap
+        };
+
         return new ScrollView
         {
             Content = new VerticalStackLayout
@@ -39,15 +57,35 @@ public class SettingsPage : ContentPage
                     // ─── PaddleOCR Settings ──────────────────────
                     BuildSectionHeader("PaddleOCR 设置"),
                     BuildEntryField("Token", nameof(_vm.BaiduToken), "PaddleOCR Token"),
-                    BuildEntryField("端点地址", nameof(_vm.BaiduEndpoint), "https://aistudio.baidu.com/...", isPassword: false),
-                    BuildTestButton("测试 OCR 连接", nameof(_vm.TestBaiduConnectionCommand)),
+                    BuildEntryField("端点地址", nameof(_vm.BaiduEndpoint), "https://aistudio.baidu.com/..."),
+                    new Button
+                    {
+                        Text = "测试 OCR 连接",
+                        BackgroundColor = Color.FromArgb("#388E3C"),
+                        TextColor = Colors.White,
+                        FontSize = 13,
+                        MinimumHeightRequest = 36,
+                        HorizontalOptions = LayoutOptions.End
+                    }
+                    .Invoke(btn => btn.Clicked += OnTestOcrClicked),
+                    _ocrTestResult,
 
                     // ─── GLM Settings ────────────────────────────
                     BuildSectionHeader("GLM API 设置"),
                     BuildEntryField("API Key", nameof(_vm.GlmApiKey), "GlmApiKey"),
                     BuildEntryField("端点地址", nameof(_vm.GlmEndpoint), "GlmEndpoint"),
                     BuildEntryField("模型", nameof(_vm.GlmModel), "GlmModel"),
-                    BuildTestButton("测试 GLM 连接", nameof(_vm.TestGlmConnectionCommand)),
+                    new Button
+                    {
+                        Text = "测试 GLM 连接",
+                        BackgroundColor = Color.FromArgb("#388E3C"),
+                        TextColor = Colors.White,
+                        FontSize = 13,
+                        MinimumHeightRequest = 36,
+                        HorizontalOptions = LayoutOptions.End
+                    }
+                    .Invoke(btn => btn.Clicked += OnTestGlmClicked),
+                    _glmTestResult,
 
                     // ─── Language Settings ─────────────────────────
                     BuildSectionHeader("语言设置"),
@@ -86,16 +124,7 @@ public class SettingsPage : ContentPage
                             }
                             .Invoke(btn => btn.Clicked += OnCloseClicked)
                         }
-                    },
-
-                    // ─── Status ──────────────────────────────────────────
-                    new Label
-                    {
-                        FontSize = 12,
-                        TextColor = Color.FromArgb("#666"),
-                        HorizontalOptions = LayoutOptions.Center
                     }
-                    .Bind(Label.TextProperty, nameof(_vm.TestResult))
                 }
             }
         };
@@ -154,22 +183,6 @@ public class SettingsPage : ContentPage
                 }
             }
         };
-    }
-
-    // ─── Helper: Test Button ─────────────────────────────────────
-
-    private static Button BuildTestButton(string text, string commandName)
-    {
-        return new Button
-        {
-            Text = text,
-            BackgroundColor = Color.FromArgb("#388E3C"),
-            TextColor = Colors.White,
-            FontSize = 13,
-            MinimumHeightRequest = 36,
-            HorizontalOptions = LayoutOptions.End
-        }
-        .Bind(Button.CommandProperty, commandName);
     }
 
     // ─── Helper: Language Selector ───────────────────────────
@@ -254,7 +267,6 @@ public class SettingsPage : ContentPage
                     Children = { catLabel, removeBtn }
                 };
 
-                // Wire remove button command
                 removeBtn.SetBinding(Button.CommandParameterProperty, ".");
                 removeBtn.SetBinding(Button.CommandProperty, nameof(_vm.RemoveCategoryCommand));
 
@@ -286,6 +298,42 @@ public class SettingsPage : ContentPage
     }
 
     // ─── Event Handlers ──────────────────────────────────────────
+
+    private async void OnTestOcrClicked(object? sender, EventArgs e)
+    {
+        _ocrTestResult.Text = "正在测试...";
+        _ocrTestResult.TextColor = Color.FromArgb("#1976D2");
+        try
+        {
+            await _vm.TestBaiduConnectionCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _vm.TestResult = $"异常: {ex.Message}";
+        }
+        _ocrTestResult.Text = _vm.TestResult;
+        _ocrTestResult.TextColor = _vm.TestResult.Contains("成功")
+            ? Color.FromArgb("#388E3C")
+            : Color.FromArgb("#F44336");
+    }
+
+    private async void OnTestGlmClicked(object? sender, EventArgs e)
+    {
+        _glmTestResult.Text = "正在测试...";
+        _glmTestResult.TextColor = Color.FromArgb("#1976D2");
+        try
+        {
+            await _vm.TestGlmConnectionCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _vm.TestResult = $"异常: {ex.Message}";
+        }
+        _glmTestResult.Text = _vm.TestResult;
+        _glmTestResult.TextColor = _vm.TestResult.Contains("成功")
+            ? Color.FromArgb("#388E3C")
+            : Color.FromArgb("#F44336");
+    }
 
     private async void OnCloseClicked(object? sender, EventArgs e)
     {
