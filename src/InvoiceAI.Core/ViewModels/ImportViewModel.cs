@@ -118,7 +118,10 @@ public partial class ImportViewModel : ObservableObject
 
             if (ocrSuccessIndices.Count == 0)
             {
-                StatusMessage = "没有成功的OCR结果";
+                var skippedCount = ImportItems.Count(it => it.Status.Contains("已存在"));
+                StatusMessage = skippedCount > 0
+                    ? $"所有 {skippedCount} 张图片已存在，无新发票"
+                    : "没有成功的OCR结果";
                 IsProcessing = false;
                 return;
             }

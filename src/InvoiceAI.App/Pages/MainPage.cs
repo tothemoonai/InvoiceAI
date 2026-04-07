@@ -21,6 +21,8 @@ public class MainPage : ContentPage
     private Border _dropZone = null!;
     private ActivityIndicator _busyIndicator = null!;
     private Label _statusBar = null!;
+    private Label _importStatusLabel = null!;
+    private ProgressBar _importProgressBar = null!;
 
     public MainPage(
         MainViewModel viewModel,
@@ -609,15 +611,29 @@ public class MainPage : ContentPage
             })
         };
 
+        _importStatusLabel = new Label
+        {
+            TextColor = Colors.White,
+            FontSize = 16,
+            FontAttributes = FontAttributes.Bold,
+            HorizontalOptions = LayoutOptions.Center
+        };
+
+        _importProgressBar = new ProgressBar
+        {
+            WidthRequest = 300,
+            ProgressColor = Color.FromArgb("#1976D2")
+        };
+
         var cancelBtn = new Button
         {
             Text = "取消",
             BackgroundColor = Color.FromArgb("#F44336"),
             TextColor = Colors.White,
             WidthRequest = 100,
-            HorizontalOptions = LayoutOptions.Center
+            HorizontalOptions = LayoutOptions.Center,
+            Command = _importVm.CancelCommand
         };
-        cancelBtn.SetBinding(Button.CommandProperty, nameof(_importVm.CancelCommand));
 
         var overlay = new Border
         {
@@ -639,20 +655,8 @@ public class MainPage : ContentPage
                         Color = Colors.White,
                         Scale = 1.5
                     },
-                    new Label
-                    {
-                        TextColor = Colors.White,
-                        FontSize = 16,
-                        FontAttributes = FontAttributes.Bold,
-                        HorizontalOptions = LayoutOptions.Center
-                    }
-                    .Bind(Label.TextProperty, nameof(_importVm.StatusMessage)),
-                    new ProgressBar
-                    {
-                        WidthRequest = 300,
-                        ProgressColor = Color.FromArgb("#1976D2")
-                    }
-                    .Bind(ProgressBar.ProgressProperty, nameof(_importVm.Progress)),
+                    _importStatusLabel,
+                    _importProgressBar,
                     fileList,
                     cancelBtn
                 }
@@ -810,20 +814,25 @@ public class MainPage : ContentPage
 
         _importVm.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(_importVm.IsProcessing))
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                MainThread.BeginInvokeOnMainThread(() =>
+                switch (e.PropertyName)
                 {
-                    _importOverlay.IsVisible = _importVm.IsProcessing;
-                });
-            }
-            if (!_importVm.IsProcessing)
-            {
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    await _vm.LoadDataCommand.ExecuteAsync(null);
-                });
-            }
+                    case nameof(_importVm.IsProcessing):
+                        _importOverlay.IsVisible = _importVm.IsProcessing;
+                        if (!_importVm.IsProcessing)
+                        {
+                            _ = _vm.LoadDataCommand.ExecuteAsync(null);
+                        }
+                        break;
+                    case nameof(_importVm.StatusMessage):
+                        _importStatusLabel.Text = _importVm.StatusMessage;
+                        break;
+                    case nameof(_importVm.Progress):
+                        _importProgressBar.Progress = _importVm.Progress / 100.0;
+                        break;
+                }
+            });
         };
     }
 
