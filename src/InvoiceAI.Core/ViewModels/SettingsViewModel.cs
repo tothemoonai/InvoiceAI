@@ -97,9 +97,9 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task TestBaiduConnectionAsync()
     {
-        if (_ocrService == null || _httpClient == null)
+        if (_httpClient == null)
         {
-            TestResult = "OCR 服务不可用";
+            TestResult = "HTTP 客户端不可用";
             return;
         }
 
@@ -112,24 +112,24 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             TestResult = "正在测试 PaddleOCR 连接...";
-            // Temporarily apply settings
-            var settings = _settingsService.Settings;
-            settings.BaiduOcr.Token = BaiduToken;
-            settings.BaiduOcr.Endpoint = BaiduEndpoint;
 
-            // Test with a simple HTTP request to verify endpoint is reachable
             using var request = new HttpRequestMessage(HttpMethod.Post, BaiduEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"token {BaiduToken}");
-            request.Content = JsonContent.Create(new { file = "", fileType = 1 });
+            request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
 
             var response = await _httpClient.SendAsync(request);
-            TestResult = response.StatusCode == System.Net.HttpStatusCode.OK
-                ? "PaddleOCR 连接成功"
-                : response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                    ? "PaddleOCR Token 无效"
-                    : response.StatusCode == System.Net.HttpStatusCode.Forbidden
-                        ? "PaddleOCR 无权限或配额用尽"
-                        : $"PaddleOCR 连接失败: {response.StatusCode}";
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                TestResult = "PaddleOCR 连接成功";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                TestResult = "PaddleOCR Token 无效或已过期";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                TestResult = "PaddleOCR 无权限或配额用尽";
+            else if ((int)response.StatusCode == 400)
+                TestResult = "PaddleOCR 连接成功（端点可达，Token 有效）";
+            else
+                TestResult = $"PaddleOCR 连接失败: HTTP {(int)response.StatusCode}";
         }
         catch (Exception ex)
         {
@@ -140,9 +140,9 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task TestGlmConnectionAsync()
     {
-        if (_glmService == null)
+        if (_httpClient == null)
         {
-            TestResult = "GLM 服务不可用";
+            TestResult = "HTTP 客户端不可用";
             return;
         }
 
@@ -155,14 +155,28 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             TestResult = "正在测试 GLM 连接...";
-            // Temporarily apply keys
             var settings = _settingsService.Settings;
             settings.Glm.ApiKey = GlmApiKey;
             settings.Glm.Endpoint = GlmEndpoint;
             settings.Glm.Model = GlmModel;
 
-            var result = await _glmService.ProcessInvoiceAsync("测试文本：这是一个测试连接");
-            TestResult = $"GLM 连接成功: {result.IssuerName}";
+            var request = new HttpRequestMessage(HttpMethod.Post, GlmEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {GlmApiKey}");
+            request.Content = new StringContent(
+                $"{{\"model\":\"{GlmModel}\",\"messages\":[{{\"role\":\"user\",\"content\":\"hi\"}}]}}",
+                System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                TestResult = "GLM 连接成功";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                TestResult = "GLM API Key 无效";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                TestResult = "GLM 无权限或配额用尽";
+            else
+                TestResult = $"GLM 连接失败: HTTP {(int)response.StatusCode} - {body}";
         }
         catch (Exception ex)
         {

@@ -114,7 +114,7 @@ public class SettingsViewModelTests
     public async Task TestGlmConnectionAsync_NoKey_ShowsError()
     {
         var glmMock = new Mock<IGlmService>();
-        var vm = new SettingsViewModel(CreateSettingsService(), glmService: glmMock.Object);
+        var vm = new SettingsViewModel(CreateSettingsService(), glmService: glmMock.Object, httpClient: new HttpClient());
         vm.GlmApiKey = "";
         await vm.TestGlmConnectionCommand.ExecuteAsync(null);
         Assert.Contains("请填写", vm.TestResult);

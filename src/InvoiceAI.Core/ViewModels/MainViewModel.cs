@@ -50,12 +50,14 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var invoices = await _invoiceService.GetAllAsync();
-            Invoices = new ObservableCollection<Invoice>(invoices);
+            Invoices.Clear();
+            foreach (var inv in invoices) Invoices.Add(inv);
 
             CategoryCounts = await _invoiceService.GetCategoryCountsAsync();
             var cats = _settingsService.Settings.Categories.ToList();
             cats.Insert(0, "全部");
-            Categories = new ObservableCollection<string>(cats);
+            Categories.Clear();
+            foreach (var cat in cats) Categories.Add(cat);
         }
         finally
         {
@@ -74,7 +76,8 @@ public partial class MainViewModel : ObservableObject
             var invoices = category == "全部"
                 ? await _invoiceService.GetAllAsync()
                 : await _invoiceService.GetByCategoryAsync(category);
-            Invoices = new ObservableCollection<Invoice>(invoices);
+            Invoices.Clear();
+            foreach (var inv in invoices) Invoices.Add(inv);
         }
         finally { IsBusy = false; }
     }
@@ -94,7 +97,8 @@ public partial class MainViewModel : ObservableObject
             (i.Description?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
             (i.RegistrationNumber?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false)
         ).ToList();
-        Invoices = new ObservableCollection<Invoice>(filtered);
+        Invoices.Clear();
+        foreach (var inv in filtered) Invoices.Add(inv);
     }
 
     // Export

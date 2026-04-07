@@ -853,19 +853,10 @@ public class MainPage : ContentPage
     {
         try
         {
-            var result = await FilePicker.Default.PickAsync(new PickOptions
+            var filePath = await PickFileAsync("选择发票文件");
+            if (filePath != null)
             {
-                PickerTitle = "选择发票文件",
-                FileTypes = new FilePickerFileType(
-                    new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".pdf" } }
-                    })
-            });
-
-            if (result != null)
-            {
-                await _importVm.ProcessFilesCommand.ExecuteAsync(new[] { result.FullPath });
+                await _importVm.ProcessFilesCommand.ExecuteAsync(new[] { filePath });
             }
         }
         catch (Exception ex)
@@ -873,6 +864,37 @@ public class MainPage : ContentPage
             await this.DisplayAlert("导入错误", ex.Message, "OK");
         }
     }
+
+#if WINDOWS
+    private async Task<string?> PickFileAsync(string title)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".pdf");
+
+        // Get window handle via the native WinUI3 window
+        var win = this.Window;
+        var platformWnd = win.Handler?.PlatformView;
+        if (platformWnd is not Microsoft.UI.Xaml.Window xamlWindow)
+            return null;
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xamlWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+#else
+    private async Task<string?> PickFileAsync(string title)
+    {
+        var result = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = title });
+        return result?.FullPath;
+    }
+#endif
 
     private async void OnExportClicked(object? sender, EventArgs e)
     {

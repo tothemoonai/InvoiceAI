@@ -40,8 +40,9 @@ public partial class ImportViewModel : ObservableObject
 
         IsProcessing = true;
         Results.Clear();
-        ImportItems = new ObservableCollection<ImportItem>(
-            supported.Select(f => new ImportItem { FileName = Path.GetFileName(f), FilePath = f, Status = "等待中" }));
+        ImportItems.Clear();
+        foreach (var f in supported)
+            ImportItems.Add(new ImportItem { FileName = Path.GetFileName(f), FilePath = f, Status = "等待中" });
 
         for (int i = 0; i < supported.Count; i++)
         {
@@ -79,6 +80,12 @@ public partial class ImportViewModel : ObservableObject
             catch (Exception ex)
             {
                 item.Status = $"❌ 失败: {ex.Message}";
+                var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
+                Directory.CreateDirectory(logDir);
+                var innerMsg = ex.InnerException != null ? $"\nInner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}" : "";
+                System.IO.File.AppendAllText(
+                    Path.Combine(logDir, "import_error.log"),
+                    $"[{DateTime.Now:HH:mm:ss}] {filePath}: {ex.GetType().FullName}: {ex.Message}{innerMsg}\n{ex.StackTrace}\n\n");
             }
         }
 

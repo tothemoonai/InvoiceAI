@@ -54,10 +54,10 @@ public class BaiduOcrService : IBaiduOcrService
         }
 
         // Extract markdown text from response: result.layoutParsingResults[].markdown.text
-        if (!json.TryGetProperty("result", out var result))
+        if (!json.TryGetProperty("result", out var resultEl))
             throw new InvalidOperationException("PaddleOCR 返回结果格式异常：缺少 result 字段");
 
-        if (!result.TryGetProperty("layoutParsingResults", out var pages))
+        if (!resultEl.TryGetProperty("layoutParsingResults", out var pages))
             throw new InvalidOperationException("PaddleOCR 返回结果格式异常：缺少 layoutParsingResults 字段");
 
         var texts = new List<string>();
@@ -72,6 +72,15 @@ public class BaiduOcrService : IBaiduOcrService
             }
         }
 
-        return string.Join("\n\n", texts);
+        var ocrText = string.Join("\n\n", texts);
+
+        // Save OCR result to MD file
+        var ocrDir = Path.Combine(Path.GetTempPath(), "InvoiceAI", "ocr");
+        Directory.CreateDirectory(ocrDir);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        var mdPath = Path.Combine(ocrDir, $"{fileName}_{DateTime.Now:yyyyMMdd_HHmmss}.md");
+        await File.WriteAllTextAsync(mdPath, ocrText);
+
+        return ocrText;
     }
 }
