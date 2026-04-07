@@ -10,6 +10,7 @@ public class SettingsPage : ContentPage
     private readonly SettingsViewModel _vm;
     private Label _ocrTestResult = null!;
     private Label _glmTestResult = null!;
+    private Label _saveResult = null!;
 
     public SettingsPage(SettingsViewModel viewModel)
     {
@@ -46,6 +47,14 @@ public class SettingsPage : ContentPage
             LineBreakMode = LineBreakMode.WordWrap
         };
 
+        _saveResult = new Label
+        {
+            FontSize = 13,
+            TextColor = Color.FromArgb("#388E3C"),
+            HorizontalOptions = LayoutOptions.Fill,
+            LineBreakMode = LineBreakMode.WordWrap
+        }.Bind(Label.TextProperty, nameof(_vm.TestResult));
+
         return new ScrollView
         {
             Content = new VerticalStackLayout
@@ -70,15 +79,14 @@ public class SettingsPage : ContentPage
                     .Invoke(btn => btn.Clicked += OnTestOcrClicked),
                     _ocrTestResult,
 
-                    // ─── GLM Settings ────────────────────────────
-                    BuildSectionHeader("GLM API 设置"),
+                    // ─── LLM Settings ────────────────────────────
+                    BuildSectionHeader("LLM API 设置"),
                     BuildProviderSelector(),
-                    BuildEntryField("API Key", nameof(_vm.GlmApiKey), "API Key"),
-                    BuildEntryField("端点地址", nameof(_vm.GlmEndpoint), "Endpoint URL"),
-                    BuildEntryField("模型", nameof(_vm.GlmModel), "Model name"),
+                    BuildModelPicker(),
+                    BuildEntryField("API Key", nameof(_vm.GlmApiKey), "API Key", isPassword: true),
                     new Button
                     {
-                        Text = "测试 GLM 连接",
+                        Text = "测试 LLM 连接",
                         BackgroundColor = Color.FromArgb("#388E3C"),
                         TextColor = Colors.White,
                         FontSize = 13,
@@ -125,7 +133,8 @@ public class SettingsPage : ContentPage
                             }
                             .Invoke(btn => btn.Clicked += OnCloseClicked)
                         }
-                    }
+                    },
+                    _saveResult
                 }
             }
         };
@@ -206,10 +215,54 @@ public class SettingsPage : ContentPage
         };
         nvidia.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsNvidiaProvider));
 
+        var cerebras = new RadioButton
+        {
+            Content = new Label { Text = "Cerebras", FontSize = 14 },
+            Value = "cerebras",
+            HorizontalOptions = LayoutOptions.Start
+        };
+        cerebras.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsCerebrasProvider));
+
         return new HorizontalStackLayout
         {
             Spacing = 16,
-            Children = { zhipu, nvidia }
+            Children = { zhipu, nvidia, cerebras }
+        };
+    }
+
+    // ─── Helper: Model Picker ────────────────────────────────
+
+    private View BuildModelPicker()
+    {
+        var picker = new Picker
+        {
+            FontSize = 14,
+            MinimumHeightRequest = 40,
+            Title = "选择模型"
+        };
+        picker.SetBinding(Picker.ItemsSourceProperty, nameof(_vm.AvailableModels));
+        picker.SetBinding(Picker.SelectedIndexProperty, nameof(_vm.SelectedModelIndex));
+
+        return new Border
+        {
+            StrokeShape = new RoundRectangle { CornerRadius = 6 },
+            StrokeThickness = 1,
+            Stroke = Color.FromArgb("#E0E0E0"),
+            Padding = new Thickness(0),
+            Content = new VerticalStackLayout
+            {
+                Spacing = 4,
+                Children =
+                {
+                    new Label
+                    {
+                        Text = "模型",
+                        FontSize = 12,
+                        TextColor = Color.FromArgb("#666")
+                    },
+                    picker
+                }
+            }
         };
     }
 

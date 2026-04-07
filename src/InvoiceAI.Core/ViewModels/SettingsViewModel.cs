@@ -31,11 +31,27 @@ public partial class SettingsViewModel : ObservableObject
         _baiduEndpoint = s.BaiduOcr.Endpoint;
         _glmProvider = s.Glm.Provider;
         _previousGlmProvider = s.Glm.Provider;
-        _glmApiKey = s.Glm.ApiKey;
-        _glmEndpoint = s.Glm.Endpoint;
-        _glmModel = s.Glm.Model;
+        if (s.Glm.Provider == "nvidia")
+        {
+            _glmApiKey = s.Glm.NvidiaApiKey;
+            _glmEndpoint = s.Glm.NvidiaEndpoint;
+            _glmModel = s.Glm.NvidiaModel;
+        }
+        else if (s.Glm.Provider == "cerebras")
+        {
+            _glmApiKey = s.Glm.CerebrasApiKey;
+            _glmEndpoint = s.Glm.CerebrasEndpoint;
+            _glmModel = s.Glm.CerebrasModel;
+        }
+        else
+        {
+            _glmApiKey = s.Glm.ApiKey;
+            _glmEndpoint = s.Glm.Endpoint;
+            _glmModel = s.Glm.Model;
+        }
         _selectedLanguage = s.Language;
         _categories = new ObservableCollection<string>(s.Categories);
+        RefreshModelList(s);
     }
 
     [ObservableProperty] private string _baiduToken = string.Empty;
@@ -44,40 +60,55 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _glmApiKey = string.Empty;
     [ObservableProperty] private string _glmEndpoint = string.Empty;
     [ObservableProperty] private string _glmModel = string.Empty;
+    [ObservableProperty] private ObservableCollection<string> _availableModels = [];
+    [ObservableProperty] private int _selectedModelIndex = -1;
 
     partial void OnGlmProviderChanged(string value)
     {
         if (value == _previousGlmProvider) return;
         var s = _settingsService.Settings;
         // Save current UI fields to old provider's storage
-        if (_previousGlmProvider == "nvidia")
+        switch (_previousGlmProvider)
         {
-            s.Glm.NvidiaApiKey = GlmApiKey;
-            s.Glm.NvidiaEndpoint = GlmEndpoint;
-            s.Glm.NvidiaModel = GlmModel;
-        }
-        else
-        {
-            s.Glm.ApiKey = GlmApiKey;
-            s.Glm.Endpoint = GlmEndpoint;
-            s.Glm.Model = GlmModel;
+            case "nvidia":
+                s.Glm.NvidiaApiKey = GlmApiKey;
+                s.Glm.NvidiaEndpoint = GlmEndpoint;
+                s.Glm.NvidiaModel = GlmModel;
+                break;
+            case "cerebras":
+                s.Glm.CerebrasApiKey = GlmApiKey;
+                s.Glm.CerebrasEndpoint = GlmEndpoint;
+                s.Glm.CerebrasModel = GlmModel;
+                break;
+            default:
+                s.Glm.ApiKey = GlmApiKey;
+                s.Glm.Endpoint = GlmEndpoint;
+                s.Glm.Model = GlmModel;
+                break;
         }
         // Update active provider in memory so GlmService picks it up immediately
         s.Glm.Provider = value;
         // Load new provider's values into UI
-        if (value == "nvidia")
+        switch (value)
         {
-            GlmApiKey = s.Glm.NvidiaApiKey;
-            GlmEndpoint = s.Glm.NvidiaEndpoint;
-            GlmModel = s.Glm.NvidiaModel;
-        }
-        else
-        {
-            GlmApiKey = s.Glm.ApiKey;
-            GlmEndpoint = s.Glm.Endpoint;
-            GlmModel = s.Glm.Model;
+            case "nvidia":
+                GlmApiKey = s.Glm.NvidiaApiKey;
+                GlmEndpoint = s.Glm.NvidiaEndpoint;
+                GlmModel = s.Glm.NvidiaModel;
+                break;
+            case "cerebras":
+                GlmApiKey = s.Glm.CerebrasApiKey;
+                GlmEndpoint = s.Glm.CerebrasEndpoint;
+                GlmModel = s.Glm.CerebrasModel;
+                break;
+            default:
+                GlmApiKey = s.Glm.ApiKey;
+                GlmEndpoint = s.Glm.Endpoint;
+                GlmModel = s.Glm.Model;
+                break;
         }
         _previousGlmProvider = value;
+        RefreshModelList(_settingsService.Settings);
     }
     [ObservableProperty] private string _selectedLanguage = "zh";
     [ObservableProperty] private ObservableCollection<string> _categories = [];
@@ -91,20 +122,57 @@ public partial class SettingsViewModel : ObservableObject
         BaiduEndpoint = s.BaiduOcr.Endpoint;
         GlmProvider = s.Glm.Provider;
         _previousGlmProvider = s.Glm.Provider;
-        if (s.Glm.Provider == "nvidia")
-        {
-            GlmApiKey = s.Glm.NvidiaApiKey;
-            GlmEndpoint = s.Glm.NvidiaEndpoint;
-            GlmModel = s.Glm.NvidiaModel;
-        }
-        else
-        {
-            GlmApiKey = s.Glm.ApiKey;
-            GlmEndpoint = s.Glm.Endpoint;
-            GlmModel = s.Glm.Model;
-        }
+        LoadGlmFieldsForProvider(s);
+        RefreshModelList(s);
         SelectedLanguage = s.Language;
         Categories = new ObservableCollection<string>(s.Categories);
+    }
+
+    private void LoadGlmFieldsForProvider(AppSettings s)
+    {
+        switch (s.Glm.Provider)
+        {
+            case "nvidia":
+                GlmApiKey = s.Glm.NvidiaApiKey;
+                GlmEndpoint = s.Glm.NvidiaEndpoint;
+                GlmModel = s.Glm.NvidiaModel;
+                break;
+            case "cerebras":
+                GlmApiKey = s.Glm.CerebrasApiKey;
+                GlmEndpoint = s.Glm.CerebrasEndpoint;
+                GlmModel = s.Glm.CerebrasModel;
+                break;
+            default:
+                GlmApiKey = s.Glm.ApiKey;
+                GlmEndpoint = s.Glm.Endpoint;
+                GlmModel = s.Glm.Model;
+                break;
+        }
+    }
+
+    private void RefreshModelList(AppSettings s)
+    {
+        var models = s.Glm.GetModelsForProvider();
+        AvailableModels = new ObservableCollection<string>(models.Select(m => m.Name));
+        // Find matching model and set selected index
+        var currentModel = s.Glm.Provider switch
+        {
+            "nvidia" => s.Glm.NvidiaModel,
+            "cerebras" => s.Glm.CerebrasModel,
+            _ => s.Glm.Model
+        };
+        var idx = Array.FindIndex(models, m => m.Id == currentModel);
+        SelectedModelIndex = idx >= 0 ? idx : 0;
+        // Update GlmModel to match selection
+        if (idx >= 0) GlmModel = models[idx].Id;
+    }
+
+    partial void OnSelectedModelIndexChanged(int value)
+    {
+        if (value < 0) return;
+        var models = _settingsService.Settings.Glm.GetModelsForProvider();
+        if (value < models.Length)
+            GlmModel = models[value].Id;
     }
 
     // Provider helpers
@@ -116,6 +184,7 @@ public partial class SettingsViewModel : ObservableObject
             if (!value) return;
             GlmProvider = "zhipu";
             OnPropertyChanged(nameof(IsNvidiaProvider));
+            OnPropertyChanged(nameof(IsCerebrasProvider));
         }
     }
 
@@ -127,6 +196,19 @@ public partial class SettingsViewModel : ObservableObject
             if (!value) return;
             GlmProvider = "nvidia";
             OnPropertyChanged(nameof(IsZhipuProvider));
+            OnPropertyChanged(nameof(IsCerebrasProvider));
+        }
+    }
+
+    public bool IsCerebrasProvider
+    {
+        get => GlmProvider == "cerebras";
+        set
+        {
+            if (!value) return;
+            GlmProvider = "cerebras";
+            OnPropertyChanged(nameof(IsZhipuProvider));
+            OnPropertyChanged(nameof(IsNvidiaProvider));
         }
     }
 
@@ -161,17 +243,23 @@ public partial class SettingsViewModel : ObservableObject
         s.BaiduOcr.Endpoint = BaiduEndpoint;
         s.Glm.Provider = GlmProvider;
         // Save UI fields to active provider
-        if (GlmProvider == "nvidia")
+        switch (GlmProvider)
         {
-            s.Glm.NvidiaApiKey = GlmApiKey;
-            s.Glm.NvidiaEndpoint = GlmEndpoint;
-            s.Glm.NvidiaModel = GlmModel;
-        }
-        else
-        {
-            s.Glm.ApiKey = GlmApiKey;
-            s.Glm.Endpoint = GlmEndpoint;
-            s.Glm.Model = GlmModel;
+            case "nvidia":
+                s.Glm.NvidiaApiKey = GlmApiKey;
+                s.Glm.NvidiaEndpoint = GlmEndpoint;
+                s.Glm.NvidiaModel = GlmModel;
+                break;
+            case "cerebras":
+                s.Glm.CerebrasApiKey = GlmApiKey;
+                s.Glm.CerebrasEndpoint = GlmEndpoint;
+                s.Glm.CerebrasModel = GlmModel;
+                break;
+            default:
+                s.Glm.ApiKey = GlmApiKey;
+                s.Glm.Endpoint = GlmEndpoint;
+                s.Glm.Model = GlmModel;
+                break;
         }
         s.Language = SelectedLanguage;
         s.Categories = Categories.ToList();
@@ -233,26 +321,38 @@ public partial class SettingsViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(GlmApiKey))
         {
-            TestResult = "请填写 GLM API Key";
+            TestResult = $"请填写 API Key";
             return;
         }
 
         try
         {
-            TestResult = "正在测试 GLM 连接...";
+            var providerName = GlmProvider switch
+            {
+                "nvidia" => "NVIDIA NIM",
+                "cerebras" => "Cerebras",
+                _ => "智谱 (Zhipu)"
+            };
+            TestResult = $"正在测试 {providerName} 连接...";
             var settings = _settingsService.Settings;
             // Save current UI fields to active provider before testing
-            if (GlmProvider == "nvidia")
+            switch (GlmProvider)
             {
-                settings.Glm.NvidiaApiKey = GlmApiKey;
-                settings.Glm.NvidiaEndpoint = GlmEndpoint;
-                settings.Glm.NvidiaModel = GlmModel;
-            }
-            else
-            {
-                settings.Glm.ApiKey = GlmApiKey;
-                settings.Glm.Endpoint = GlmEndpoint;
-                settings.Glm.Model = GlmModel;
+                case "nvidia":
+                    settings.Glm.NvidiaApiKey = GlmApiKey;
+                    settings.Glm.NvidiaEndpoint = GlmEndpoint;
+                    settings.Glm.NvidiaModel = GlmModel;
+                    break;
+                case "cerebras":
+                    settings.Glm.CerebrasApiKey = GlmApiKey;
+                    settings.Glm.CerebrasEndpoint = GlmEndpoint;
+                    settings.Glm.CerebrasModel = GlmModel;
+                    break;
+                default:
+                    settings.Glm.ApiKey = GlmApiKey;
+                    settings.Glm.Endpoint = GlmEndpoint;
+                    settings.Glm.Model = GlmModel;
+                    break;
             }
 
             var request = new HttpRequestMessage(HttpMethod.Post, GlmEndpoint);
@@ -265,17 +365,23 @@ public partial class SettingsViewModel : ObservableObject
             var body = await response.Content.ReadAsStringAsync();
 
             if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                TestResult = "GLM 连接成功";
+                TestResult = $"{providerName} 连接成功";
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                TestResult = "GLM API Key 无效";
+                TestResult = $"{providerName} API Key 无效";
             else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                TestResult = "GLM 无权限或配额用尽";
+                TestResult = $"{providerName} 无权限或配额用尽";
             else
-                TestResult = $"GLM 连接失败: HTTP {(int)response.StatusCode} - {body}";
+                TestResult = $"{providerName} 连接失败: HTTP {(int)response.StatusCode} - {body}";
         }
         catch (Exception ex)
         {
-            TestResult = $"GLM 连接异常: {ex.Message}";
+            var providerName = GlmProvider switch
+            {
+                "nvidia" => "NVIDIA NIM",
+                "cerebras" => "Cerebras",
+                _ => "智谱 (Zhipu)"
+            };
+            TestResult = $"{providerName} 连接异常: {ex.Message}";
         }
     }
 

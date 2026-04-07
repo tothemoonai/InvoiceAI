@@ -11,6 +11,7 @@ namespace InvoiceAI.Core.ViewModels;
 public partial class ImportViewModel : ObservableObject
 {
     private const int MaxFiles = 5;
+    private static string LogDir => Helpers.LogHelper.LogDir;
 
     private readonly IBaiduOcrService _ocrService;
     private readonly IGlmService _glmService;
@@ -168,7 +169,13 @@ public partial class ImportViewModel : ObservableObject
                 progressCts.Cancel();
             }
             glmSw.Stop();
-            LogTiming($"GLM batch ({ocrSuccessIndices.Count} invoices)", glmSw.ElapsedMilliseconds);
+
+            // Token stats
+            var totalTokens = glmResults.Sum(r => r.TotalTokens);
+            var promptTokens = glmResults.Sum(r => r.PromptTokens);
+            var completionTokens = glmResults.Sum(r => r.CompletionTokens);
+            LogTiming($"GLM batch ({ocrSuccessIndices.Count} invoices)", glmSw.ElapsedMilliseconds,
+                promptTokens, completionTokens, totalTokens);
 
             // ── Map and save results ──────────────────────────────
             for (int j = 0; j < ocrSuccessIndices.Count; j++)
@@ -181,12 +188,14 @@ public partial class ImportViewModel : ObservableObject
                 var invoice = MapToInvoice(glm, ocrText, supported[idx], hash);
                 invoice = await _invoiceService.SaveAsync(invoice);
                 Results.Add(invoice);
-                ImportItems[idx].Status = "✅ 完成";
+                var tokenInfo = glm.TotalTokens > 0 ? $" (tokens: {glm.TotalTokens})" : "";
+                ImportItems[idx].Status = $"✅ 完成{tokenInfo}";
             }
 
             UpdateProgress(n * 2 + 1, n * 2 + 1);
             totalSw.Stop();
-            StatusMessage = $"处理完成: {Results.Count}/{n} 成功 (总耗时 {totalSw.ElapsedMilliseconds / 1000.0:F1}s)";
+            var tokenSummary = totalTokens > 0 ? $", tokens: {totalTokens}" : "";
+            StatusMessage = $"处理完成: {Results.Count}/{n} 成功 (总耗时 {totalSw.ElapsedMilliseconds / 1000.0:F1}s{tokenSummary})";
         }
         finally
         {
@@ -202,21 +211,22 @@ public partial class ImportViewModel : ObservableObject
 
     private static void LogError(string filePath, Exception ex)
     {
-        var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
-        Directory.CreateDirectory(logDir);
+        Directory.CreateDirectory(LogDir);
         var innerMsg = ex.InnerException != null ? $"\nInner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}" : "";
         System.IO.File.AppendAllText(
-            Path.Combine(logDir, "import_error.log"),
+            Path.Combine(LogDir, "import_error.log"),
             $"[{DateTime.Now:HH:mm:ss}] {filePath}: {ex.GetType().FullName}: {ex.Message}{innerMsg}\n{ex.StackTrace}\n\n");
     }
 
-    private static void LogTiming(string label, long ms)
+    private static void LogTiming(string label, long ms, int promptTokens = 0, int completionTokens = 0, int totalTokens = 0)
     {
-        var logDir = Path.Combine(Path.GetTempPath(), "InvoiceAI");
-        Directory.CreateDirectory(logDir);
+        Directory.CreateDirectory(LogDir);
+        var tokenInfo = totalTokens > 0
+            ? $" | tokens: {totalTokens} (prompt: {promptTokens}, completion: {completionTokens})"
+            : "";
         System.IO.File.AppendAllText(
-            Path.Combine(logDir, "timing.log"),
-            $"[{DateTime.Now:HH:mm:ss}] {label}: {ms}ms\n");
+            Path.Combine(LogDir, "timing.log"),
+            $"[{DateTime.Now:HH:mm:ss}] {label}: {ms}ms{tokenInfo}\n");
     }
 
     private static Invoice MapToInvoice(GlmInvoiceResponse glm, string ocrText, string filePath, string hash)
