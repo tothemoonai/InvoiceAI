@@ -72,9 +72,10 @@ public class SettingsPage : ContentPage
 
                     // ─── GLM Settings ────────────────────────────
                     BuildSectionHeader("GLM API 设置"),
-                    BuildEntryField("API Key", nameof(_vm.GlmApiKey), "GlmApiKey"),
-                    BuildEntryField("端点地址", nameof(_vm.GlmEndpoint), "GlmEndpoint"),
-                    BuildEntryField("模型", nameof(_vm.GlmModel), "GlmModel"),
+                    BuildProviderSelector(),
+                    BuildEntryField("API Key", nameof(_vm.GlmApiKey), "API Key"),
+                    BuildEntryField("端点地址", nameof(_vm.GlmEndpoint), "Endpoint URL"),
+                    BuildEntryField("模型", nameof(_vm.GlmModel), "Model name"),
                     new Button
                     {
                         Text = "测试 GLM 连接",
@@ -182,6 +183,33 @@ public class SettingsPage : ContentPage
                     entry
                 }
             }
+        };
+    }
+
+    // ─── Helper: Provider Selector ───────────────────────────
+
+    private View BuildProviderSelector()
+    {
+        var zhipu = new RadioButton
+        {
+            Content = new Label { Text = "智谱 (Zhipu)", FontSize = 14 },
+            Value = "zhipu",
+            HorizontalOptions = LayoutOptions.Start
+        };
+        zhipu.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsZhipuProvider));
+
+        var nvidia = new RadioButton
+        {
+            Content = new Label { Text = "NVIDIA NIM", FontSize = 14 },
+            Value = "nvidia",
+            HorizontalOptions = LayoutOptions.Start
+        };
+        nvidia.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsNvidiaProvider));
+
+        return new HorizontalStackLayout
+        {
+            Spacing = 16,
+            Children = { zhipu, nvidia }
         };
     }
 
