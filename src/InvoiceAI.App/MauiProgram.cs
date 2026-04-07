@@ -19,7 +19,7 @@ public static class MauiProgram
             options.UseSqlite($"Data Source={dbPath}"));
 
         // HTTP client
-        builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(5) });
+        builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
 
         // Singleton services
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
