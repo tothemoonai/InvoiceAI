@@ -20,21 +20,22 @@ public class GlmService : IGlmService
     public async Task<GlmInvoiceResponse> ProcessInvoiceAsync(string ocrText)
     {
         var settings = _settingsService.Settings.Glm;
+        var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
 
         var requestBody = new
         {
-            model = settings.Model,
+            model,
             messages = new object[]
             {
                 new { role = "system", content = InvoicePrompt.SystemPrompt },
                 new { role = "user", content = InvoicePrompt.BuildUserMessage(ocrText) }
             },
             temperature = 0.1,
-            max_tokens = 100000
+            max_tokens = maxTokens
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, settings.Endpoint);
-        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {settings.ApiKey}");
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
         request.Content = JsonContent.Create(requestBody);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));

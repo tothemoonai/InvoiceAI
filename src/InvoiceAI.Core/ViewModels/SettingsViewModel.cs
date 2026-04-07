@@ -14,6 +14,8 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IGlmService? _glmService;
     private readonly HttpClient? _httpClient;
 
+    private string _previousGlmProvider = "zhipu";
+
     public SettingsViewModel(
         IAppSettingsService settingsService,
         IBaiduOcrService? ocrService = null,
@@ -27,6 +29,8 @@ public partial class SettingsViewModel : ObservableObject
         var s = _settingsService.Settings;
         _baiduToken = s.BaiduOcr.Token;
         _baiduEndpoint = s.BaiduOcr.Endpoint;
+        _glmProvider = s.Glm.Provider;
+        _previousGlmProvider = s.Glm.Provider;
         _glmApiKey = s.Glm.ApiKey;
         _glmEndpoint = s.Glm.Endpoint;
         _glmModel = s.Glm.Model;
@@ -36,9 +40,45 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _baiduToken = string.Empty;
     [ObservableProperty] private string _baiduEndpoint = string.Empty;
+    [ObservableProperty] private string _glmProvider = "zhipu";
     [ObservableProperty] private string _glmApiKey = string.Empty;
     [ObservableProperty] private string _glmEndpoint = string.Empty;
     [ObservableProperty] private string _glmModel = string.Empty;
+
+    partial void OnGlmProviderChanged(string value)
+    {
+        if (value == _previousGlmProvider) return;
+        var s = _settingsService.Settings;
+        // Save current UI fields to old provider's storage
+        if (_previousGlmProvider == "nvidia")
+        {
+            s.Glm.NvidiaApiKey = GlmApiKey;
+            s.Glm.NvidiaEndpoint = GlmEndpoint;
+            s.Glm.NvidiaModel = GlmModel;
+        }
+        else
+        {
+            s.Glm.ApiKey = GlmApiKey;
+            s.Glm.Endpoint = GlmEndpoint;
+            s.Glm.Model = GlmModel;
+        }
+        // Update active provider in memory so GlmService picks it up immediately
+        s.Glm.Provider = value;
+        // Load new provider's values into UI
+        if (value == "nvidia")
+        {
+            GlmApiKey = s.Glm.NvidiaApiKey;
+            GlmEndpoint = s.Glm.NvidiaEndpoint;
+            GlmModel = s.Glm.NvidiaModel;
+        }
+        else
+        {
+            GlmApiKey = s.Glm.ApiKey;
+            GlmEndpoint = s.Glm.Endpoint;
+            GlmModel = s.Glm.Model;
+        }
+        _previousGlmProvider = value;
+    }
     [ObservableProperty] private string _selectedLanguage = "zh";
     [ObservableProperty] private ObservableCollection<string> _categories = [];
     [ObservableProperty] private string _newCategory = string.Empty;
@@ -49,11 +89,45 @@ public partial class SettingsViewModel : ObservableObject
         var s = _settingsService.Settings;
         BaiduToken = s.BaiduOcr.Token;
         BaiduEndpoint = s.BaiduOcr.Endpoint;
-        GlmApiKey = s.Glm.ApiKey;
-        GlmEndpoint = s.Glm.Endpoint;
-        GlmModel = s.Glm.Model;
+        GlmProvider = s.Glm.Provider;
+        _previousGlmProvider = s.Glm.Provider;
+        if (s.Glm.Provider == "nvidia")
+        {
+            GlmApiKey = s.Glm.NvidiaApiKey;
+            GlmEndpoint = s.Glm.NvidiaEndpoint;
+            GlmModel = s.Glm.NvidiaModel;
+        }
+        else
+        {
+            GlmApiKey = s.Glm.ApiKey;
+            GlmEndpoint = s.Glm.Endpoint;
+            GlmModel = s.Glm.Model;
+        }
         SelectedLanguage = s.Language;
         Categories = new ObservableCollection<string>(s.Categories);
+    }
+
+    // Provider helpers
+    public bool IsZhipuProvider
+    {
+        get => GlmProvider == "zhipu";
+        set
+        {
+            if (!value) return;
+            GlmProvider = "zhipu";
+            OnPropertyChanged(nameof(IsNvidiaProvider));
+        }
+    }
+
+    public bool IsNvidiaProvider
+    {
+        get => GlmProvider == "nvidia";
+        set
+        {
+            if (!value) return;
+            GlmProvider = "nvidia";
+            OnPropertyChanged(nameof(IsZhipuProvider));
+        }
     }
 
     // Language helpers
@@ -85,9 +159,20 @@ public partial class SettingsViewModel : ObservableObject
         var s = _settingsService.Settings;
         s.BaiduOcr.Token = BaiduToken;
         s.BaiduOcr.Endpoint = BaiduEndpoint;
-        s.Glm.ApiKey = GlmApiKey;
-        s.Glm.Endpoint = GlmEndpoint;
-        s.Glm.Model = GlmModel;
+        s.Glm.Provider = GlmProvider;
+        // Save UI fields to active provider
+        if (GlmProvider == "nvidia")
+        {
+            s.Glm.NvidiaApiKey = GlmApiKey;
+            s.Glm.NvidiaEndpoint = GlmEndpoint;
+            s.Glm.NvidiaModel = GlmModel;
+        }
+        else
+        {
+            s.Glm.ApiKey = GlmApiKey;
+            s.Glm.Endpoint = GlmEndpoint;
+            s.Glm.Model = GlmModel;
+        }
         s.Language = SelectedLanguage;
         s.Categories = Categories.ToList();
         await _settingsService.SaveAsync();
@@ -156,9 +241,19 @@ public partial class SettingsViewModel : ObservableObject
         {
             TestResult = "正在测试 GLM 连接...";
             var settings = _settingsService.Settings;
-            settings.Glm.ApiKey = GlmApiKey;
-            settings.Glm.Endpoint = GlmEndpoint;
-            settings.Glm.Model = GlmModel;
+            // Save current UI fields to active provider before testing
+            if (GlmProvider == "nvidia")
+            {
+                settings.Glm.NvidiaApiKey = GlmApiKey;
+                settings.Glm.NvidiaEndpoint = GlmEndpoint;
+                settings.Glm.NvidiaModel = GlmModel;
+            }
+            else
+            {
+                settings.Glm.ApiKey = GlmApiKey;
+                settings.Glm.Endpoint = GlmEndpoint;
+                settings.Glm.Model = GlmModel;
+            }
 
             var request = new HttpRequestMessage(HttpMethod.Post, GlmEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {GlmApiKey}");

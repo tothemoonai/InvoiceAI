@@ -135,4 +135,96 @@ public class SettingsViewModelTests
         await vm.TestGlmConnectionCommand.ExecuteAsync(null);
         Assert.Contains("不可用", vm.TestResult);
     }
+
+    [Fact]
+    public void Constructor_DefaultProvider_IsZhipu()
+    {
+        var vm = new SettingsViewModel(CreateSettingsService());
+        Assert.Equal("zhipu", vm.GlmProvider);
+        Assert.True(vm.IsZhipuProvider);
+        Assert.False(vm.IsNvidiaProvider);
+    }
+
+    [Fact]
+    public void GlmProvider_SwitchToNvidia_UpdatesFields()
+    {
+        var mock = new Mock<IAppSettingsService>();
+        var settings = new AppSettings();
+        settings.Glm.NvidiaApiKey = "nvidia-test-key";
+        settings.Glm.NvidiaEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
+        settings.Glm.NvidiaModel = "z-ai/glm4.7";
+        mock.Setup(s => s.Settings).Returns(settings);
+        var vm = new SettingsViewModel(mock.Object);
+
+        vm.GlmProvider = "nvidia";
+        Assert.Equal("nvidia-test-key", vm.GlmApiKey);
+        Assert.Equal("z-ai/glm4.7", vm.GlmModel);
+        Assert.True(vm.IsNvidiaProvider);
+        Assert.False(vm.IsZhipuProvider);
+    }
+
+    [Fact]
+    public void GlmProvider_SwitchSavesOldProviderFields()
+    {
+        var mock = new Mock<IAppSettingsService>();
+        var settings = new AppSettings();
+        mock.Setup(s => s.Settings).Returns(settings);
+        var vm = new SettingsViewModel(mock.Object);
+
+        vm.GlmApiKey = "zhipu-key";
+        vm.GlmEndpoint = "https://zhipu.test";
+        vm.GlmModel = "glm-test";
+        vm.GlmProvider = "nvidia";
+
+        // Old provider (zhipu) fields should be saved
+        Assert.Equal("zhipu-key", settings.Glm.ApiKey);
+        Assert.Equal("https://zhipu.test", settings.Glm.Endpoint);
+        Assert.Equal("glm-test", settings.Glm.Model);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WithNvidiaProvider_SavesNvidiaFields()
+    {
+        var settingsMock = new Mock<IAppSettingsService>();
+        settingsMock.Setup(s => s.Settings).Returns(new AppSettings());
+        settingsMock.Setup(s => s.SaveAsync()).Returns(Task.CompletedTask);
+        var vm = new SettingsViewModel(settingsMock.Object);
+
+        vm.GlmProvider = "nvidia";
+        vm.GlmApiKey = "nvidia-key";
+        vm.GlmEndpoint = "https://nvidia.test";
+        vm.GlmModel = "z-ai/glm4.7";
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        var s = settingsMock.Object.Settings;
+        Assert.Equal("nvidia", s.Glm.Provider);
+        Assert.Equal("nvidia-key", s.Glm.NvidiaApiKey);
+        Assert.Equal("https://nvidia.test", s.Glm.NvidiaEndpoint);
+        Assert.Equal("z-ai/glm4.7", s.Glm.NvidiaModel);
+    }
+
+    [Fact]
+    public void GetActiveConfig_Zhipu_ReturnsZhipuValues()
+    {
+        var settings = new AppSettings();
+        settings.Glm.ApiKey = "zhipu-key";
+        settings.Glm.Model = "glm-4.7";
+        var (apiKey, endpoint, model, maxTokens) = settings.Glm.GetActiveConfig();
+        Assert.Equal("zhipu-key", apiKey);
+        Assert.Equal("glm-4.7", model);
+        Assert.Equal(100000, maxTokens);
+    }
+
+    [Fact]
+    public void GetActiveConfig_Nvidia_ReturnsNvidiaValues()
+    {
+        var settings = new AppSettings();
+        settings.Glm.Provider = "nvidia";
+        settings.Glm.NvidiaApiKey = "nvidia-key";
+        settings.Glm.NvidiaModel = "z-ai/glm4.7";
+        var (apiKey, endpoint, model, maxTokens) = settings.Glm.GetActiveConfig();
+        Assert.Equal("nvidia-key", apiKey);
+        Assert.Equal("z-ai/glm4.7", model);
+        Assert.Equal(32768, maxTokens);
+    }
 }
