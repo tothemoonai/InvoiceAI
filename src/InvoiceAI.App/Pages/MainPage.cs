@@ -3,6 +3,7 @@ using CommunityToolkit.Maui.Markup;
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Models;
+using InvoiceAI.App.Utils;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Controls;
 using IOPath = System.IO.Path;
@@ -43,7 +44,7 @@ public class MainPage : ContentPage
         BindingContext = viewModel;
 
         Title = "InvoiceAI";
-        BackgroundColor = Color.FromArgb("#F5F5F5");
+        BackgroundColor = ThemeManager.Background;
 
         BuildUI();
         WireEvents();
@@ -58,7 +59,7 @@ public class MainPage : ContentPage
         _busyIndicator = new ActivityIndicator
         {
             IsRunning = false,
-            Color = Color.FromArgb("#1976D2"),
+            Color = ThemeManager.BrandPrimary,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
             Scale = 1.5
@@ -69,7 +70,7 @@ public class MainPage : ContentPage
         _statusBar = new Label
         {
             FontSize = 12,
-            TextColor = Color.FromArgb("#666"),
+            TextColor = ThemeManager.TextSecondary,
             Padding = new Thickness(16, 4)
         };
         _statusBar.SetBinding(Label.TextProperty, nameof(_vm.StatusMessage));
@@ -111,7 +112,7 @@ public class MainPage : ContentPage
     {
         return new Border
         {
-            BackgroundColor = Color.FromArgb("#1976D2"),
+            BackgroundColor = ThemeManager.BrandPrimary,
             Padding = new Thickness(16, 8),
             Content = new HorizontalStackLayout
             {
@@ -164,7 +165,7 @@ public class MainPage : ContentPage
                     },
                     Padding = new Thickness(12, 8),
                     MinimumHeightRequest = 40,
-                    Children = { nameLabel, new Label { FontSize = 12, TextColor = Color.FromArgb("#888") } }
+                    Children = { nameLabel, new Label { FontSize = 12, TextColor = ThemeManager.TextTertiary } }
                 };
 
                 Grid.SetColumn(nameLabel, 0);
@@ -177,7 +178,7 @@ public class MainPage : ContentPage
 
         return new Border
         {
-            BackgroundColor = Colors.White,
+            BackgroundColor = ThemeManager.CardBackground,
             Margin = new Thickness(0, 0, 1, 0),
             StrokeShape = new RoundRectangle { CornerRadius = 0 },
             StrokeThickness = 0,
@@ -196,7 +197,7 @@ public class MainPage : ContentPage
                     new BoxView
                     {
                         HeightRequest = 1,
-                        BackgroundColor = Color.FromArgb("#E0E0E0"),
+                        BackgroundColor = ThemeManager.BorderLight,
                         Margin = new Thickness(8, 4)
                     }.Row(1),
 
@@ -206,9 +207,9 @@ public class MainPage : ContentPage
                         Spacing = 6,
                         Children =
                         {
-                            BuildActionButton("📥 导入", OnImportClicked, Color.FromArgb("#1976D2")),
-                            BuildActionButton("📤 导出", OnExportClicked, Color.FromArgb("#388E3C")),
-                            BuildActionButton("⚙ 设置", OnSettingsClicked, Color.FromArgb("#757575"))
+                            BuildActionButton("📥 导入", OnImportClicked, ThemeManager.BrandPrimary),
+                            BuildActionButton("📤 导出", OnExportClicked, ThemeManager.Success),
+                            BuildActionButton("⚙ 设置", OnSettingsClicked, ThemeManager.TextSecondary)
                         }
                     }.Row(2)
                 }
@@ -248,7 +249,7 @@ public class MainPage : ContentPage
                     Padding = new Thickness(6, 2),
                     StrokeShape = new RoundRectangle { CornerRadius = 4 },
                     StrokeThickness = 0,
-                    BackgroundColor = Color.FromArgb("#4CAF50"),
+                    BackgroundColor = ThemeManager.Success,
                     HorizontalOptions = LayoutOptions.End,
                     Content = typeLabel
                 };
@@ -258,7 +259,7 @@ public class MainPage : ContentPage
                 var dateLabel = new Label
                 {
                     FontSize = 12,
-                    TextColor = Color.FromArgb("#666")
+                    TextColor = ThemeManager.TextSecondary
                 };
                 dateLabel.SetBinding(Label.TextProperty, nameof(Invoice.TransactionDate), stringFormat: "{0:yyyy-MM-dd}");
 
@@ -266,7 +267,7 @@ public class MainPage : ContentPage
                 var amountLabel = new Label
                 {
                     FontSize = 12,
-                    TextColor = Color.FromArgb("#1976D2"),
+                    TextColor = ThemeManager.BrandPrimary,
                     FontAttributes = FontAttributes.Bold,
                     HorizontalOptions = LayoutOptions.End
                 };
@@ -276,7 +277,7 @@ public class MainPage : ContentPage
                 var catLabel = new Label
                 {
                     FontSize = 11,
-                    TextColor = Color.FromArgb("#999")
+                    TextColor = ThemeManager.TextTertiary
                 };
                 catLabel.SetBinding(Label.TextProperty, nameof(Invoice.Category));
 
@@ -310,7 +311,7 @@ public class MainPage : ContentPage
                     Padding = new Thickness(6, 2),
                     StrokeShape = new RoundRectangle { CornerRadius = 4 },
                     StrokeThickness = 0,
-                    BackgroundColor = Color.FromArgb("#4CAF50"),
+                    BackgroundColor = ThemeManager.Success,
                     HorizontalOptions = LayoutOptions.End,
                     Content = new Label
                     {
@@ -347,12 +348,12 @@ public class MainPage : ContentPage
 
                 var border = new Border
                 {
-                    BackgroundColor = Colors.White,
+                    BackgroundColor = ThemeManager.CardBackground,
                     Margin = new Thickness(8, 4),
                     Padding = new Thickness(12, 8),
                     StrokeShape = new RoundRectangle { CornerRadius = 6 },
                     StrokeThickness = 2,
-                    Stroke = Color.FromArgb("#E0E0E0"),
+                    Stroke = ThemeManager.BorderLight,
                     MinimumHeightRequest = 72,
                     Content = contentWithBadge
                 };
@@ -370,8 +371,8 @@ public class MainPage : ContentPage
                                 Name = "Normal",
                                 Setters =
                                 {
-                                    new Setter { Property = Border.BackgroundColorProperty, Value = Colors.White },
-                                    new Setter { Property = Border.StrokeProperty, Value = Color.FromArgb("#E0E0E0") }
+                                    new Setter { Property = Border.BackgroundColorProperty, Value = ThemeManager.CardBackground },
+                                    new Setter { Property = Border.StrokeProperty, Value = ThemeManager.BorderLight }
                                 }
                             },
                             new VisualState
@@ -380,7 +381,7 @@ public class MainPage : ContentPage
                                 Setters =
                                 {
                                     new Setter { Property = Border.BackgroundColorProperty, Value = Color.FromArgb("#BBDEFB") },
-                                    new Setter { Property = Border.StrokeProperty, Value = Color.FromArgb("#1976D2") }
+                                    new Setter { Property = Border.StrokeProperty, Value = ThemeManager.BrandPrimary }
                                 }
                             }
                         }
@@ -389,20 +390,7 @@ public class MainPage : ContentPage
 
                 return border;
             }),
-            EmptyView = new VerticalStackLayout
-            {
-                Padding = 20,
-                Children =
-                {
-                    new Label
-                    {
-                        Text = "暂无发票记录",
-                        FontSize = 16,
-                        TextColor = Color.FromArgb("#999"),
-                        HorizontalOptions = LayoutOptions.Center
-                    }
-                }
-            }
+            EmptyView = BuildEmptyState(),
         };
 
         _invoiceList.SelectionChanged += OnInvoiceSelected;
@@ -427,7 +415,7 @@ public class MainPage : ContentPage
         {
             Text = "仅显示已确认",
             FontSize = 12,
-            TextColor = Color.FromArgb("#666"),
+            TextColor = ThemeManager.TextSecondary,
             VerticalOptions = LayoutOptions.Center
         };
 
@@ -439,64 +427,19 @@ public class MainPage : ContentPage
             Children = { confirmedLabel, confirmedSwitch }
         };
 
-        var recentHeader = new Label
+        // Saved invoices header
+        var savedHeader = new Label
         {
-            Text = "🔵 本次识别",
+            Text = "📋 已保存记录",
             FontSize = 13,
             FontAttributes = FontAttributes.Bold,
-            TextColor = Color.FromArgb("#1976D2"),
-            Margin = new Thickness(12, 8, 0, 2)
-        };
-
-        var recentList = new CollectionView
-        {
-            ItemsSource = _vm.RecentImports,
-            ItemTemplate = new DataTemplate(() =>
-            {
-                var nameLbl = new Label
-                {
-                    FontSize = 13,
-                    FontAttributes = FontAttributes.Bold,
-                    LineBreakMode = LineBreakMode.TailTruncation,
-                    MaximumWidthRequest = 180
-                };
-                nameLbl.SetBinding(Label.TextProperty, nameof(Invoice.IssuerName));
-
-                var amtLbl = new Label
-                {
-                    FontSize = 12,
-                    TextColor = Color.FromArgb("#1976D2")
-                };
-                amtLbl.SetBinding(Label.TextProperty, nameof(Invoice.TaxIncludedAmount), stringFormat: "¥{0:N0}");
-
-                return new Border
-                {
-                    BackgroundColor = Color.FromArgb("#E3F2FD"),
-                    Margin = new Thickness(8, 2),
-                    Padding = new Thickness(10, 6),
-                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
-                    StrokeThickness = 0,
-                    Content = new HorizontalStackLayout
-                    {
-                        Spacing = 8,
-                        Children = { nameLbl, amtLbl }
-                    }
-                };
-            })
-        };
-
-        var historyHeader = new Label
-        {
-            Text = "历史记录",
-            FontSize = 13,
-            FontAttributes = FontAttributes.Bold,
-            TextColor = Color.FromArgb("#666"),
+            TextColor = ThemeManager.BrandPrimary,
             Margin = new Thickness(12, 8, 0, 2)
         };
 
         return new Border
         {
-            BackgroundColor = Color.FromArgb("#FAFAFA"),
+            BackgroundColor = ThemeManager.Get("BackgroundTertiary", "DarkBackgroundTertiary"),
             StrokeShape = new RoundRectangle { CornerRadius = 0 },
             StrokeThickness = 0,
             Content = new VerticalStackLayout
@@ -505,9 +448,7 @@ public class MainPage : ContentPage
                 {
                     searchBar,
                     filterRow,
-                    recentHeader,
-                    recentList,
-                    historyHeader,
+                    savedHeader,
                     _invoiceList
                 }
             }
@@ -546,7 +487,7 @@ public class MainPage : ContentPage
         {
             Aspect = Aspect.AspectFit,
             HeightRequest = 180,
-            BackgroundColor = Color.FromArgb("#F0F0F0"),
+            BackgroundColor = ThemeManager.Get("BackgroundTertiary", "DarkBackgroundTertiary"),
             HorizontalOptions = LayoutOptions.Fill,
             IsVisible = false
         };
@@ -560,8 +501,8 @@ public class MainPage : ContentPage
             Padding = new Thickness(4),
             StrokeShape = new RoundRectangle { CornerRadius = 8 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#E0E0E0"),
-            BackgroundColor = Colors.White,
+            Stroke = ThemeManager.BorderLight,
+            BackgroundColor = ThemeManager.CardBackground,
             Content = new Grid
             {
                 RowDefinitions =
@@ -575,7 +516,7 @@ public class MainPage : ContentPage
                     {
                         Text = "📷 发票图片（点击放大）",
                         FontSize = 11,
-                        TextColor = Color.FromArgb("#999"),
+                        TextColor = ThemeManager.TextTertiary,
                         Margin = new Thickness(4, 2)
                     }.Row(0),
                     _invoicePreviewImage.Row(1)
@@ -590,7 +531,7 @@ public class MainPage : ContentPage
             Text = "明細項目",
             FontSize = 14,
             FontAttributes = FontAttributes.Bold,
-            TextColor = Color.FromArgb("#333"),
+            TextColor = ThemeManager.TextPrimary,
             Margin = new Thickness(0, 8, 0, 4)
         };
         itemsHeader.SetBinding(IsVisibleProperty, nameof(_detailVm.InvoiceItems));
@@ -604,7 +545,7 @@ public class MainPage : ContentPage
                 var nameLbl = new Label { FontSize = 13 };
                 nameLbl.SetBinding(Label.TextProperty, nameof(InvoiceItem.Name));
 
-                var rateLbl = new Label { FontSize = 13, TextColor = Color.FromArgb("#666") };
+                var rateLbl = new Label { FontSize = 13, TextColor = ThemeManager.TextSecondary };
                 rateLbl.SetBinding(Label.TextProperty, nameof(InvoiceItem.TaxRate), stringFormat: "{0}%");
 
                 var amtLbl = new Label
@@ -617,7 +558,7 @@ public class MainPage : ContentPage
 
                 return new Border
                 {
-                    BackgroundColor = Color.FromArgb("#F5F5F5"),
+                    BackgroundColor = ThemeManager.Background,
                     Margin = new Thickness(0, 2),
                     Padding = new Thickness(10, 6),
                     StrokeShape = new RoundRectangle { CornerRadius = 4 },
@@ -646,7 +587,7 @@ public class MainPage : ContentPage
         var missingText = new Label
         {
             FontSize = 13,
-            TextColor = Color.FromArgb("#E65100")
+            TextColor = ThemeManager.Error
         };
         missingText.SetBinding(Label.TextProperty, nameof(_detailVm.MissingFieldsDisplay));
 
@@ -656,7 +597,7 @@ public class MainPage : ContentPage
             Padding = new Thickness(12, 8),
             StrokeShape = new RoundRectangle { CornerRadius = 6 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#FF9800"),
+            Stroke = ThemeManager.Warning,
             Content = new HorizontalStackLayout
             {
                 Spacing = 6,
@@ -676,8 +617,8 @@ public class MainPage : ContentPage
             Margin = new Thickness(0, 12, 0, 0),
             Children =
             {
-                BuildActionButton("💾 保存确认", OnSaveClicked, Color.FromArgb("#4CAF50")),
-                BuildActionButton("🗑 删除", OnDeleteClicked, Color.FromArgb("#F44336"))
+                BuildActionButton("✅ 确认", OnSaveClicked, ThemeManager.Success),
+                BuildActionButton("🗑 删除", OnDeleteClicked, ThemeManager.Error)
             }
         };
         actions.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
@@ -715,7 +656,7 @@ public class MainPage : ContentPage
                 {
                     Text = "← 选择一张发票查看详情",
                     FontSize = 16,
-                    TextColor = Color.FromArgb("#BBB")
+                    TextColor = ThemeManager.TextTertiary
                 }
             }
         };
@@ -725,7 +666,7 @@ public class MainPage : ContentPage
 
         return new Border
         {
-            BackgroundColor = Colors.White,
+            BackgroundColor = ThemeManager.CardBackground,
             StrokeShape = new RoundRectangle { CornerRadius = 0 },
             StrokeThickness = 0,
             Content = new Grid
@@ -770,13 +711,13 @@ public class MainPage : ContentPage
         _importProgressBar = new ProgressBar
         {
             WidthRequest = 300,
-            ProgressColor = Color.FromArgb("#1976D2")
+            ProgressColor = ThemeManager.BrandPrimary
         };
 
         var cancelBtn = new Button
         {
             Text = "取消",
-            BackgroundColor = Color.FromArgb("#F44336"),
+            BackgroundColor = ThemeManager.Error,
             TextColor = Colors.White,
             WidthRequest = 100,
             HorizontalOptions = LayoutOptions.Center,
@@ -824,7 +765,7 @@ public class MainPage : ContentPage
             BackgroundColor = Color.FromArgb("#33000000"),
             StrokeShape = new RoundRectangle { CornerRadius = 12 },
             StrokeThickness = 3,
-            Stroke = Color.FromArgb("#1976D2"),
+            Stroke = ThemeManager.BrandPrimary,
             Margin = new Thickness(8),
             Content = new VerticalStackLayout
             {
@@ -851,7 +792,7 @@ public class MainPage : ContentPage
                     {
                         Text = "支持 JPG、PNG、PDF 格式",
                         FontSize = 14,
-                        TextColor = Color.FromArgb("#CCCCCC"),
+                        TextColor = ThemeManager.TextSecondary,
                         HorizontalOptions = LayoutOptions.Center
                     }
                 }
@@ -990,7 +931,7 @@ public class MainPage : ContentPage
         var closeBtn = new Button
         {
             Text = "✕ 关闭",
-            BackgroundColor = Color.FromArgb("#333"),
+            BackgroundColor = ThemeManager.TextPrimary,
             TextColor = Colors.White,
             FontSize = 16,
             FontAttributes = FontAttributes.Bold,
@@ -1004,7 +945,7 @@ public class MainPage : ContentPage
         {
             Text = $"📷 {IOPath.GetFileName(imagePath)}",
             FontSize = 12,
-            TextColor = Color.FromArgb("#CCC"),
+            TextColor = ThemeManager.TextSecondary,
             HorizontalOptions = LayoutOptions.Start,
             Margin = new Thickness(16, 8, 0, 0)
         };
@@ -1024,7 +965,7 @@ public class MainPage : ContentPage
                 {
                     new Grid
                     {
-                        BackgroundColor = Color.FromArgb("#1A1A1A"),
+                        BackgroundColor = ThemeManager.Get("DarkBackgroundTertiary", "DarkBackgroundTertiary"),
                         ColumnDefinitions =
                         {
                             new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
@@ -1050,11 +991,11 @@ public class MainPage : ContentPage
     {
         return new Border
         {
-            BackgroundColor = Color.FromArgb("#FAFAFA"),
+            BackgroundColor = ThemeManager.CardBackground,
             Padding = new Thickness(12, 6),
             StrokeShape = new RoundRectangle { CornerRadius = 4 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#E8E8E8"),
+            Stroke = ThemeManager.BorderLight,
             Content = new Grid
             {
                 ColumnDefinitions =
@@ -1068,7 +1009,7 @@ public class MainPage : ContentPage
                     {
                         Text = label,
                         FontSize = 13,
-                        TextColor = Color.FromArgb("#666"),
+                        TextColor = ThemeManager.TextSecondary,
                         VerticalOptions = LayoutOptions.Center
                     }.Column(0),
                     new Label
@@ -1216,13 +1157,11 @@ public class MainPage : ContentPage
     {
         try
         {
-            // Show date range selection dialog
             var result = await DisplayDateRangeDialog();
-            if (!result.HasValue) return; // User cancelled
+            if (!result.HasValue) return;
 
-            var (startDate, endDate, skipConfirmed) = result.Value;
+            var (startDate, endDate, confirmedFilter) = result.Value;
 
-            // Determine export path
             var configuredPath = _settingsService.Settings.ExportPath;
             string filePath;
             if (!string.IsNullOrWhiteSpace(configuredPath) && Directory.Exists(configuredPath))
@@ -1231,13 +1170,12 @@ public class MainPage : ContentPage
             }
             else
             {
-                // Fallback: prompt user to select folder
                 var folder = await PickFolderAsync();
                 if (string.IsNullOrEmpty(folder)) return;
                 filePath = IOPath.Combine(folder, $"InvoiceAI_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
             }
 
-            await _vm.ExportCommand.ExecuteAsync((filePath, startDate, endDate, skipConfirmed));
+            await _vm.ExportCommand.ExecuteAsync((filePath, startDate, endDate, confirmedFilter));
             await this.DisplayAlert("导出完成", $"已导出到:\n{filePath}", "OK");
         }
         catch (Exception ex)
@@ -1271,9 +1209,9 @@ public class MainPage : ContentPage
     }
 #endif
 
-    private async Task<(DateTime? Start, DateTime? End, bool SkipConfirmed)?> DisplayDateRangeDialog()
+    private async Task<(DateTime? Start, DateTime? End, int ConfirmedFilter)?> DisplayDateRangeDialog()
     {
-        var tcs = new TaskCompletionSource<(DateTime? Start, DateTime? End, bool SkipConfirmed)?>();
+        var tcs = new TaskCompletionSource<(DateTime? Start, DateTime? End, int ConfirmedFilter)?>();
 
         var startPicker = new DatePicker
         {
@@ -1317,30 +1255,27 @@ public class MainPage : ContentPage
             Children = { useRangeCheckBox, useRangeLabel }
         };
 
-        // Skip confirmed checkbox
-        var skipConfirmedCheckBox = new CheckBox
-        {
-            IsChecked = true,
-            Margin = new Thickness(0, 4)
-        };
+        // Confirmed filter radio buttons
+        var allRadio = new RadioButton { Content = new Label { Text = "全部导出", FontSize = 13 }, Value = 0, IsChecked = true };
+        var confirmedRadio = new RadioButton { Content = new Label { Text = "仅导出已确认", FontSize = 13 }, Value = 1 };
+        var unconfirmedRadio = new RadioButton { Content = new Label { Text = "仅导出未确认", FontSize = 13 }, Value = 2 };
 
-        var skipConfirmedLabel = new Label
+        var filterGroup = new VerticalStackLayout
         {
-            Text = "跳过已确认的发票",
-            FontSize = 13,
-            VerticalOptions = LayoutOptions.Center
-        };
-
-        var skipConfirmedLayout = new HorizontalStackLayout
-        {
-            Spacing = 8,
-            Children = { skipConfirmedCheckBox, skipConfirmedLabel }
+            Spacing = 4,
+            Children =
+            {
+                new Label { Text = "确认状态过滤:", FontSize = 13, FontAttributes = FontAttributes.Bold, Margin = new Thickness(0, 8, 0, 4) },
+                allRadio,
+                confirmedRadio,
+                unconfirmedRadio
+            }
         };
 
         var exportBtn = new Button
         {
             Text = "导出",
-            BackgroundColor = Color.FromArgb("#388E3C"),
+            BackgroundColor = ThemeManager.Success,
             TextColor = Colors.White,
             Margin = new Thickness(0, 12, 0, 0)
         };
@@ -1348,7 +1283,7 @@ public class MainPage : ContentPage
         var cancelBtn = new Button
         {
             Text = "取消",
-            BackgroundColor = Color.FromArgb("#757575"),
+            BackgroundColor = ThemeManager.TextSecondary,
             TextColor = Colors.White,
             Margin = new Thickness(0, 8, 0, 0)
         };
@@ -1361,7 +1296,7 @@ public class MainPage : ContentPage
             {
                 new Label
                 {
-                    Text = "选择导出时间范围",
+                    Text = "选择导出选项",
                     FontSize = 16,
                     FontAttributes = FontAttributes.Bold,
                     HorizontalOptions = LayoutOptions.Center
@@ -1371,8 +1306,8 @@ public class MainPage : ContentPage
                 startPicker,
                 new Label { Text = "结束日期:", FontSize = 13 },
                 endPicker,
-                new BoxView { HeightRequest = 1, BackgroundColor = Color.FromArgb("#E0E0E0"), Margin = new Thickness(0, 4) },
-                skipConfirmedLayout,
+                new BoxView { HeightRequest = 1, BackgroundColor = ThemeManager.BorderLight, Margin = new Thickness(0, 4) },
+                filterGroup,
                 exportBtn,
                 cancelBtn
             }
@@ -1382,14 +1317,13 @@ public class MainPage : ContentPage
 
         exportBtn.Clicked += async (s, e) =>
         {
-            if (useRangeCheckBox.IsChecked)
-            {
-                tcs.SetResult((startPicker.Date, endPicker.Date, skipConfirmedCheckBox.IsChecked));
-            }
-            else
-            {
-                tcs.SetResult((null, null, skipConfirmedCheckBox.IsChecked));
-            }
+            DateTime? start = useRangeCheckBox.IsChecked ? startPicker.Date : null;
+            DateTime? end = useRangeCheckBox.IsChecked ? endPicker.Date : null;
+            int confirmedFilter = 0;
+            if (confirmedRadio.IsChecked == true) confirmedFilter = 1;
+            else if (unconfirmedRadio.IsChecked == true) confirmedFilter = 2;
+
+            tcs.SetResult((start, end, confirmedFilter));
             if (popupPage != null)
                 await popupPage.Navigation.PopModalAsync();
         };
@@ -1404,13 +1338,13 @@ public class MainPage : ContentPage
         popupPage = new ContentPage
         {
             Title = "导出选项",
-            BackgroundColor = Color.FromArgb("#F5F5F5"),
+            BackgroundColor = ThemeManager.Background,
             Content = new Border
             {
-                BackgroundColor = Colors.White,
+                BackgroundColor = ThemeManager.CardBackground,
                 StrokeShape = new RoundRectangle { CornerRadius = 12 },
                 StrokeThickness = 1,
-                Stroke = Color.FromArgb("#E0E0E0"),
+                Stroke = ThemeManager.BorderLight,
                 Margin = new Thickness(20),
                 Content = new ScrollView { Content = layout }
             }
@@ -1435,7 +1369,7 @@ public class MainPage : ContentPage
     private async void OnDeleteClicked(object? sender, EventArgs e)
     {
         var selectedCount = _vm.SelectedInvoices.Count;
-        
+
         // If nothing multi-selected, fall back to single selected invoice
         if (selectedCount == 0 && _vm.SelectedInvoice == null) return;
 
@@ -1451,5 +1385,52 @@ public class MainPage : ContentPage
             await _vm.DeleteInvoiceCommand.ExecuteAsync(null);
             _detailVm.CurrentInvoice = null;
         }
+    }
+
+    private static Style? GetStyle(string key)
+    {
+        if (Application.Current?.Resources.TryGetValue(key, out var value) == true
+            && value is Style style)
+        {
+            return style;
+        }
+        return null;
+    }
+
+    private View BuildEmptyState()
+    {
+        return new VerticalStackLayout
+        {
+            Padding = new Thickness(40, 60),
+            Spacing = 16,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                new Label
+                {
+                    Text = "📄",
+                    FontSize = 64,
+                    HorizontalOptions = LayoutOptions.Center,
+                    Opacity = 0.3
+                },
+                new Label
+                {
+                    Text = "暂无发票记录",
+                    FontSize = 18,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = ThemeManager.TextSecondary,
+                    HorizontalOptions = LayoutOptions.Center
+                },
+                new Label
+                {
+                    Text = "点击左下角「导入」按钮添加您的第一张发票",
+                    FontSize = 14,
+                    TextColor = ThemeManager.TextTertiary,
+                    HorizontalOptions = LayoutOptions.Center,
+                    LineBreakMode = LineBreakMode.WordWrap
+                }
+            }
+        };
     }
 }
