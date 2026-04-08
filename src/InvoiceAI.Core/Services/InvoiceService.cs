@@ -34,6 +34,12 @@ public class InvoiceService : IInvoiceService
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
 
+    public async Task<List<Invoice>> GetConfirmedAsync()
+        => await _dbContext.Invoices
+            .Where(i => i.IsConfirmed)
+            .OrderByDescending(i => i.TransactionDate)
+            .ToListAsync();
+
     public async Task<Invoice?> GetByIdAsync(int id)
         => await _dbContext.Invoices.FindAsync(id);
 

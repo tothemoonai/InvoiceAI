@@ -4,5 +4,5 @@ namespace InvoiceAI.Core.Services;
 
 public interface IExcelExportService
 {
-    Task<string> ExportAsync(List<Invoice> invoices, string filePath);
+    Task<string> ExportAsync(List<Invoice> invoices, string filePath, DateTime? startDate = null, DateTime? endDate = null);
 }

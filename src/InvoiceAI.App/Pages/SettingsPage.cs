@@ -100,6 +100,15 @@ public class SettingsPage : ContentPage
                     BuildSectionHeader("语言设置"),
                     BuildLanguageSelector(),
 
+                    // ─── Export Settings ───────────────────────────
+                    BuildSectionHeader("导出设置"),
+                    BuildSwitchField("导出后自动保存确认", nameof(_vm.AutoSaveAfterExport), "导出后自动将发票标记为「已确认」"),
+                    BuildPathField("Excel 导出路径", nameof(_vm.ExportPath), "选择 Excel 导出文件的默认保存目录"),
+
+                    // ─── Archive Settings ──────────────────────────
+                    BuildSectionHeader("发票归档设置"),
+                    BuildPathField("发票文件保存路径", nameof(_vm.InvoiceArchivePath), "导入后发票文件（压缩/重命名）的归档目录"),
+
                     // ─── Category Management ───────────────────────
                     BuildSectionHeader("分类管理"),
                     BuildCategoryManager(),
@@ -190,6 +199,154 @@ public class SettingsPage : ContentPage
                         TextColor = Color.FromArgb("#666")
                     },
                     entry
+                }
+            }
+        };
+    }
+
+    // ─── Helper: Switch Field ─────────────────────────────────
+
+    private static Border BuildSwitchField(string label, string bindingPath, string description)
+    {
+        var switchCtrl = new Switch
+        {
+            HorizontalOptions = LayoutOptions.Start
+        };
+        switchCtrl.SetBinding(Switch.IsToggledProperty, bindingPath);
+
+        var descLabel = new Label
+        {
+            Text = description,
+            FontSize = 11,
+            TextColor = Color.FromArgb("#999")
+        };
+
+        return new Border
+        {
+            StrokeShape = new RoundRectangle { CornerRadius = 6 },
+            StrokeThickness = 1,
+            Stroke = Color.FromArgb("#E0E0E0"),
+            Padding = new Thickness(12, 10),
+            Content = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+                },
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto))
+                },
+                Children =
+                {
+                    new Label
+                    {
+                        Text = label,
+                        FontSize = 14,
+                        FontAttributes = FontAttributes.Bold,
+                        VerticalOptions = LayoutOptions.Center
+                    }.Column(0).Row(0),
+                    switchCtrl.Column(1).Row(0).RowSpan(2),
+                    descLabel.Column(0).Row(1)
+                }
+            }
+        };
+    }
+
+    // ─── Helper: Path Field with Browse Button ────────────────
+
+    private Border BuildPathField(string label, string bindingPath, string description)
+    {
+        var pathEntry = new Entry
+        {
+            Placeholder = "点击右侧按钮选择文件夹",
+            FontSize = 13,
+            BackgroundColor = Colors.White,
+            MinimumHeightRequest = 36,
+            IsReadOnly = true
+        };
+        pathEntry.SetBinding(Entry.TextProperty, bindingPath);
+
+        var browseBtn = new Button
+        {
+            Text = "📁 选择",
+            BackgroundColor = Color.FromArgb("#1976D2"),
+            TextColor = Colors.White,
+            FontSize = 12,
+            MinimumWidthRequest = 80,
+            MinimumHeightRequest = 36,
+            Padding = new Thickness(8, 4)
+        };
+
+        var descLabel = new Label
+        {
+            Text = description,
+            FontSize = 11,
+            TextColor = Color.FromArgb("#999")
+        };
+
+        // Extract property name from binding path (e.g. "_vm.ExportPath" -> "ExportPath")
+        var propName = bindingPath.StartsWith("_vm.") ? bindingPath.Substring(4) : bindingPath;
+
+        browseBtn.Clicked += async (s, e) =>
+        {
+#if WINDOWS
+            var folderPicker = new Windows.Storage.Pickers.FolderPicker();
+            folderPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+            folderPicker.FileTypeFilter.Add("*");
+
+            var win = this.Window;
+            var platformWnd = win.Handler?.PlatformView;
+            if (platformWnd is not Microsoft.UI.Xaml.Window xamlWindow) return;
+
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xamlWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+            var folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                pathEntry.Text = folder.Path;
+                var vmProp = BindingContext?.GetType().GetProperty(propName);
+                if (vmProp != null && BindingContext != null)
+                    vmProp.SetValue(BindingContext, folder.Path);
+            }
+#else
+            await this.DisplayAlert("提示", "当前平台不支持文件夹选择，请手动输入路径", "OK");
+#endif
+        };
+
+        return new Border
+        {
+            StrokeShape = new RoundRectangle { CornerRadius = 6 },
+            StrokeThickness = 1,
+            Stroke = Color.FromArgb("#E0E0E0"),
+            Padding = new Thickness(12, 10),
+            Content = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+                },
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto))
+                },
+                Children =
+                {
+                    new Label
+                    {
+                        Text = label,
+                        FontSize = 14,
+                        FontAttributes = FontAttributes.Bold
+                    }.Column(0).Row(0).ColumnSpan(2),
+                    pathEntry.Column(0).Row(1),
+                    browseBtn.Column(1).Row(1),
+                    descLabel.Column(0).Row(2).ColumnSpan(2)
                 }
             }
         };
@@ -316,49 +473,58 @@ public class SettingsPage : ContentPage
         };
         addBtn.SetBinding(Button.CommandProperty, nameof(_vm.AddCategoryCommand));
 
+        // Use CollectionView with GridItemsLayout for 3 columns
         var categoryList = new CollectionView
         {
             ItemsSource = _vm.Categories,
-            MinimumHeightRequest = 150,
-            MaximumHeightRequest = 250,
+            MinimumHeightRequest = 60,
+            MaximumHeightRequest = 300,
+            ItemsLayout = new GridItemsLayout(3, ItemsLayoutOrientation.Horizontal)
+            {
+                HorizontalItemSpacing = 8,
+                VerticalItemSpacing = 8
+            },
             ItemTemplate = new DataTemplate(() =>
             {
                 var catLabel = new Label
                 {
-                    FontSize = 14,
-                    VerticalOptions = LayoutOptions.Center
+                    FontSize = 13,
+                    TextColor = Color.FromArgb("#333"),
+                    VerticalOptions = LayoutOptions.Center,
+                    VerticalTextAlignment = TextAlignment.Center,
+                    LineBreakMode = LineBreakMode.TailTruncation
                 };
                 catLabel.SetBinding(Label.TextProperty, ".");
 
                 var removeBtn = new Button
                 {
                     Text = "✕",
-                    BackgroundColor = Color.FromArgb("#F44336"),
-                    TextColor = Colors.White,
+                    BackgroundColor = Colors.Transparent,
+                    TextColor = Color.FromArgb("#F44336"),
                     FontSize = 12,
-                    MinimumWidthRequest = 32,
-                    MinimumHeightRequest = 32,
+                    MinimumWidthRequest = 20,
+                    MinimumHeightRequest = 20,
                     Padding = new Thickness(0),
                     VerticalOptions = LayoutOptions.Center
                 };
-
-                var item = new HorizontalStackLayout
-                {
-                    Spacing = 8,
-                    Children = { catLabel, removeBtn }
-                };
-
                 removeBtn.SetBinding(Button.CommandParameterProperty, ".");
                 removeBtn.SetBinding(Button.CommandProperty, nameof(_vm.RemoveCategoryCommand));
 
+                var chipContent = new HorizontalStackLayout
+                {
+                    Spacing = 4,
+                    Children = { catLabel, removeBtn }
+                };
+
                 return new Border
                 {
-                    Padding = new Thickness(8, 4),
-                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
+                    Padding = new Thickness(8, 0),
+                    StrokeShape = new RoundRectangle { CornerRadius = 8 },
                     StrokeThickness = 1,
-                    Stroke = Color.FromArgb("#E0E0E0"),
-                    BackgroundColor = Colors.White,
-                    Content = item
+                    Stroke = Color.FromArgb("#1976D2"),
+                    BackgroundColor = Color.FromArgb("#E3F2FD"),
+                    HorizontalOptions = LayoutOptions.Start,
+                    Content = chipContent
                 };
             })
         };

@@ -57,4 +57,81 @@ public class FileService : IFileService
         await image.SaveAsJpegAsync(tempPath, new JpegEncoder { Quality = 80 });
         return tempPath;
     }
+
+    public async Task<string?> CopyToInvoiceArchiveAsync(string sourceFilePath, string archiveBasePath, string category, string issuerName, DateTime? transactionDate)
+    {
+        if (string.IsNullOrWhiteSpace(archiveBasePath))
+            return null;
+
+        try
+        {
+            // Sanitize category and issuer name for folder/file names
+            var safeCategory = SanitizeFileName(string.IsNullOrWhiteSpace(category) ? "未分类" : category);
+            var safeIssuer = SanitizeFileName(string.IsNullOrWhiteSpace(issuerName) ? "未知 issuer" : issuerName);
+            var dateStr = transactionDate?.ToString("yyyyMMdd") ?? "nodate";
+            var timestamp = DateTime.Now.ToString("HHmmss");
+
+            // Create category subfolder
+            var categoryDir = Path.Combine(archiveBasePath, safeCategory);
+            Directory.CreateDirectory(categoryDir);
+
+            // Build filename: YYYYMMDD_HHMMSS_issuerName.ext
+            var ext = Path.GetExtension(sourceFilePath);
+            var newFileName = $"{dateStr}_{timestamp}_{safeIssuer}{ext}";
+            var destPath = Path.Combine(categoryDir, newFileName);
+
+            // If file already exists, add a suffix
+            if (File.Exists(destPath))
+            {
+                var baseName = Path.GetFileNameWithoutExtension(newFileName);
+                destPath = Path.Combine(categoryDir, $"{baseName}_{Guid.NewGuid():N}{ext}");
+            }
+
+            // Check if compression is needed (images > 1MB)
+            var sourceInfo = new FileInfo(sourceFilePath);
+            if (sourceInfo.Length > MaxFileSize && !ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                // Compress before copying
+                using var image = await Image.LoadAsync(sourceFilePath);
+                if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
+                {
+                    image.Mutate(x => x.Resize(new ResizeOptions
+                    {
+                        Size = new Size(MaxImageDimension, MaxImageDimension),
+                        Mode = ResizeMode.Max
+                    }));
+                }
+
+                // If original is not JPEG, convert to JPEG for compression
+                if (!ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) && !ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+                {
+                    var jpgPath = Path.ChangeExtension(destPath, ".jpg");
+                    await image.SaveAsJpegAsync(jpgPath, new JpegEncoder { Quality = 80 });
+                    return jpgPath;
+                }
+                else
+                {
+                    await image.SaveAsJpegAsync(destPath, new JpegEncoder { Quality = 80 });
+                    return destPath;
+                }
+            }
+            else
+            {
+                // Just copy
+                File.Copy(sourceFilePath, destPath, overwrite: false);
+                return destPath;
+            }
+        }
+        catch
+        {
+            // Silently fail - archiving is optional
+            return null;
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Concat(name.Where(c => !invalid.Contains(c)));
+    }
 }

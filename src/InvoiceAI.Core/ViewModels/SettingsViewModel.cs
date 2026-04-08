@@ -31,6 +31,9 @@ public partial class SettingsViewModel : ObservableObject
         _baiduEndpoint = s.BaiduOcr.Endpoint;
         _glmProvider = s.Glm.Provider;
         _previousGlmProvider = s.Glm.Provider;
+        _autoSaveAfterExport = s.AutoSaveAfterExport;
+        _exportPath = s.ExportPath;
+        _invoiceArchivePath = s.InvoiceArchivePath;
         if (s.Glm.Provider == "nvidia")
         {
             _glmApiKey = s.Glm.NvidiaApiKey;
@@ -62,6 +65,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _glmModel = string.Empty;
     [ObservableProperty] private ObservableCollection<string> _availableModels = [];
     [ObservableProperty] private int _selectedModelIndex = -1;
+    [ObservableProperty] private bool _autoSaveAfterExport;
+    [ObservableProperty] private string _exportPath = string.Empty;
+    [ObservableProperty] private string _invoiceArchivePath = string.Empty;
 
     partial void OnGlmProviderChanged(string value)
     {
@@ -125,7 +131,11 @@ public partial class SettingsViewModel : ObservableObject
         LoadGlmFieldsForProvider(s);
         RefreshModelList(s);
         SelectedLanguage = s.Language;
-        Categories = new ObservableCollection<string>(s.Categories);
+        AutoSaveAfterExport = s.AutoSaveAfterExport;
+        ExportPath = s.ExportPath;
+        InvoiceArchivePath = s.InvoiceArchivePath;
+        Categories.Clear();
+        foreach (var cat in s.Categories) Categories.Add(cat);
     }
 
     private void LoadGlmFieldsForProvider(AppSettings s)
@@ -262,6 +272,9 @@ public partial class SettingsViewModel : ObservableObject
                 break;
         }
         s.Language = SelectedLanguage;
+        s.AutoSaveAfterExport = AutoSaveAfterExport;
+        s.ExportPath = ExportPath;
+        s.InvoiceArchivePath = InvoiceArchivePath;
         s.Categories = Categories.ToList();
         await _settingsService.SaveAsync();
         TestResult = "设置已保存";

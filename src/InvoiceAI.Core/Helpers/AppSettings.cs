@@ -5,6 +5,9 @@ public class AppSettings
     public BaiduOcrSettings BaiduOcr { get; set; } = new();
     public GlmSettings Glm { get; set; } = new();
     public string Language { get; set; } = "zh";
+    public bool AutoSaveAfterExport { get; set; } = false;
+    public string ExportPath { get; set; } = string.Empty;
+    public string InvoiceArchivePath { get; set; } = string.Empty;
     public List<string> Categories { get; set; } =
     [
         "電気・ガス", "食料品", "オフィス用品",

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using CommunityToolkit.Maui.Markup;
+using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Models;
 using Microsoft.Maui.Controls.Shapes;
@@ -13,10 +14,12 @@ public class MainPage : ContentPage
     private readonly MainViewModel _vm;
     private readonly InvoiceDetailViewModel _detailVm;
     private readonly ImportViewModel _importVm;
+    private readonly IAppSettingsService _settingsService;
     private readonly IServiceProvider _services;
 
     private CollectionView _invoiceList = null!;
     private VerticalStackLayout _detailContent = null!;
+    private Image _invoicePreviewImage = null!;
     private Border _importOverlay = null!;
     private Border _dropZone = null!;
     private ActivityIndicator _busyIndicator = null!;
@@ -28,11 +31,13 @@ public class MainPage : ContentPage
         MainViewModel viewModel,
         InvoiceDetailViewModel detailViewModel,
         ImportViewModel importViewModel,
+        IAppSettingsService settingsService,
         IServiceProvider services)
     {
         _vm = viewModel;
         _detailVm = detailViewModel;
         _importVm = importViewModel;
+        _settingsService = settingsService;
         _services = services;
 
         BindingContext = viewModel;
@@ -217,7 +222,7 @@ public class MainPage : ContentPage
     {
         _invoiceList = new CollectionView
         {
-            SelectionMode = SelectionMode.Single,
+            SelectionMode = SelectionMode.Multiple,
             ItemsSource = _vm.Invoices,
             ItemTemplate = new DataTemplate(() =>
             {
@@ -286,7 +291,8 @@ public class MainPage : ContentPage
                     ColumnDefinitions =
                     {
                         new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Star))
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
                     },
                     Children =
                     {
@@ -298,17 +304,90 @@ public class MainPage : ContentPage
                     }
                 };
 
-                return new Border
+                // Confirmed badge
+                var confirmedBadge = new Border
+                {
+                    Padding = new Thickness(6, 2),
+                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
+                    StrokeThickness = 0,
+                    BackgroundColor = Color.FromArgb("#4CAF50"),
+                    HorizontalOptions = LayoutOptions.End,
+                    Content = new Label
+                    {
+                        Text = "✅",
+                        FontSize = 10
+                    }
+                };
+                confirmedBadge.SetBinding(IsVisibleProperty, nameof(Invoice.IsConfirmed));
+
+                var contentWithBadge = new Grid
+                {
+                    RowDefinitions =
+                    {
+                        new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                        new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                        new RowDefinition(new GridLength(1, GridUnitType.Auto))
+                    },
+                    ColumnDefinitions =
+                    {
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+                    },
+                    Children =
+                    {
+                        issuerLabel.Row(0).Column(0),
+                        typeBadge.Row(0).Column(1),
+                        confirmedBadge.Row(0).Column(2),
+                        dateLabel.Row(1).Column(0),
+                        amountLabel.Row(1).Column(1),
+                        catLabel.Row(2).Column(0).ColumnSpan(3)
+                    }
+                };
+
+                var border = new Border
                 {
                     BackgroundColor = Colors.White,
                     Margin = new Thickness(8, 4),
                     Padding = new Thickness(12, 8),
                     StrokeShape = new RoundRectangle { CornerRadius = 6 },
-                    StrokeThickness = 1,
+                    StrokeThickness = 2,
                     Stroke = Color.FromArgb("#E0E0E0"),
                     MinimumHeightRequest = 72,
-                    Content = content
+                    Content = contentWithBadge
                 };
+
+                // Visual state for selected items — make it obvious
+                VisualStateManager.SetVisualStateGroups(border, new VisualStateGroupList
+                {
+                    new VisualStateGroup
+                    {
+                        Name = "CommonStates",
+                        States =
+                        {
+                            new VisualState
+                            {
+                                Name = "Normal",
+                                Setters =
+                                {
+                                    new Setter { Property = Border.BackgroundColorProperty, Value = Colors.White },
+                                    new Setter { Property = Border.StrokeProperty, Value = Color.FromArgb("#E0E0E0") }
+                                }
+                            },
+                            new VisualState
+                            {
+                                Name = "Selected",
+                                Setters =
+                                {
+                                    new Setter { Property = Border.BackgroundColorProperty, Value = Color.FromArgb("#BBDEFB") },
+                                    new Setter { Property = Border.StrokeProperty, Value = Color.FromArgb("#1976D2") }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return border;
             }),
             EmptyView = new VerticalStackLayout
             {
@@ -335,6 +414,30 @@ public class MainPage : ContentPage
         };
         searchBar.SetBinding(SearchBar.SearchCommandProperty, nameof(_vm.SearchCommand));
         searchBar.SetBinding(SearchBar.TextProperty, nameof(_vm.SearchText));
+
+        // Confirmed filter toggle
+        var confirmedSwitch = new Switch
+        {
+            HorizontalOptions = LayoutOptions.End,
+            Margin = new Thickness(0, 4, 12, 0)
+        };
+        confirmedSwitch.SetBinding(Switch.IsToggledProperty, nameof(_vm.ShowConfirmedOnly));
+
+        var confirmedLabel = new Label
+        {
+            Text = "仅显示已确认",
+            FontSize = 12,
+            TextColor = Color.FromArgb("#666"),
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        var filterRow = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            Padding = new Thickness(8, 4, 8, 0),
+            HorizontalOptions = LayoutOptions.End,
+            Children = { confirmedLabel, confirmedSwitch }
+        };
 
         var recentHeader = new Label
         {
@@ -401,6 +504,7 @@ public class MainPage : ContentPage
                 Children =
                 {
                     searchBar,
+                    filterRow,
                     recentHeader,
                     recentList,
                     historyHeader,
@@ -436,6 +540,49 @@ public class MainPage : ContentPage
         };
         typeBadgeBorder.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
         typeBadgeBorder.SetBinding(Border.StrokeProperty, nameof(_detailVm.InvoiceTypeColor));
+
+        // Image preview
+        _invoicePreviewImage = new Image
+        {
+            Aspect = Aspect.AspectFit,
+            HeightRequest = 180,
+            BackgroundColor = Color.FromArgb("#F0F0F0"),
+            HorizontalOptions = LayoutOptions.Fill,
+            IsVisible = false
+        };
+        _invoicePreviewImage.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await ShowFullImagePreview())
+        });
+
+        var previewBorder = new Border
+        {
+            Padding = new Thickness(4),
+            StrokeShape = new RoundRectangle { CornerRadius = 8 },
+            StrokeThickness = 1,
+            Stroke = Color.FromArgb("#E0E0E0"),
+            BackgroundColor = Colors.White,
+            Content = new Grid
+            {
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                    new RowDefinition(new GridLength(1, GridUnitType.Star))
+                },
+                Children =
+                {
+                    new Label
+                    {
+                        Text = "📷 发票图片（点击放大）",
+                        FontSize = 11,
+                        TextColor = Color.FromArgb("#999"),
+                        Margin = new Thickness(4, 2)
+                    }.Row(0),
+                    _invoicePreviewImage.Row(1)
+                }
+            }
+        };
+        previewBorder.SetBinding(IsVisibleProperty, nameof(_invoicePreviewImage.IsVisible));
 
         // Items header
         var itemsHeader = new Label
@@ -545,6 +692,7 @@ public class MainPage : ContentPage
                 Children =
                 {
                     typeBadgeBorder,
+                    previewBorder,
                     _detailContent,
                     itemsHeader,
                     itemsList,
@@ -723,7 +871,14 @@ public class MainPage : ContentPage
         _detailContent.Children.Clear();
 
         var invoice = _detailVm.CurrentInvoice;
-        if (invoice == null) return;
+        if (invoice == null)
+        {
+            _invoicePreviewImage.IsVisible = false;
+            return;
+        }
+
+        // Load invoice image preview
+        LoadInvoiceImagePreview(invoice);
 
         _detailContent.Children.Add(BuildDetailRow("発行事業者", invoice.IssuerName));
         _detailContent.Children.Add(BuildDetailRow("登録番号", invoice.RegistrationNumber));
@@ -745,6 +900,150 @@ public class MainPage : ContentPage
 
         if (!string.IsNullOrEmpty(invoice.RecipientName))
             _detailContent.Children.Add(BuildDetailRow("交付先", invoice.RecipientName));
+    }
+
+    private void LoadInvoiceImagePreview(Invoice invoice)
+    {
+        var imagePath = FindInvoiceImagePath(invoice);
+        if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+        {
+            try
+            {
+                _invoicePreviewImage.Source = ImageSource.FromFile(imagePath);
+                _invoicePreviewImage.IsVisible = true;
+            }
+            catch
+            {
+                _invoicePreviewImage.IsVisible = false;
+            }
+        }
+        else
+        {
+            _invoicePreviewImage.IsVisible = false;
+        }
+    }
+
+    private string? FindInvoiceImagePath(Invoice invoice)
+    {
+        // 1. Check if SourceFilePath exists and is an image
+        if (!string.IsNullOrEmpty(invoice.SourceFilePath) &&
+            File.Exists(invoice.SourceFilePath) &&
+            IsImageFile(invoice.SourceFilePath))
+        {
+            return invoice.SourceFilePath;
+        }
+
+        // 2. Check archive path if configured
+        var archivePath = _settingsService.Settings.InvoiceArchivePath;
+        if (!string.IsNullOrWhiteSpace(archivePath) && Directory.Exists(archivePath))
+        {
+            var categoryDir = IOPath.Combine(archivePath, invoice.Category ?? "未分类");
+            if (Directory.Exists(categoryDir))
+            {
+                var matches = Directory.GetFiles(categoryDir, $"*{invoice.IssuerName}*");
+                if (matches.Length > 0)
+                    return matches[0]; // Return first match
+            }
+        }
+
+        // 3. Check TEMP OCR directory
+        if (!string.IsNullOrEmpty(invoice.SourceFilePath))
+        {
+            var tempOcrDir = IOPath.Combine(System.IO.Path.GetTempPath(), "InvoiceAI", "ocr");
+            if (Directory.Exists(tempOcrDir))
+            {
+                var fileName = IOPath.GetFileNameWithoutExtension(invoice.SourceFilePath);
+                var matches = Directory.GetFiles(tempOcrDir, $"{fileName}*");
+                if (matches.Length > 0 && IsImageFile(matches[0]))
+                    return matches[0];
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsImageFile(string path)
+    {
+        var ext = IOPath.GetExtension(path).ToLowerInvariant();
+        return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif" || ext == ".webp";
+    }
+
+    private async Task ShowFullImagePreview()
+    {
+        var invoice = _detailVm.CurrentInvoice;
+        if (invoice == null) return;
+
+        var imagePath = FindInvoiceImagePath(invoice);
+        if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
+        {
+            await this.DisplayAlert("提示", "发票图片不存在或无法找到", "OK");
+            return;
+        }
+
+        var fullImage = new Image
+        {
+            Source = ImageSource.FromFile(imagePath),
+            Aspect = Aspect.AspectFit,
+            BackgroundColor = Colors.Black
+        };
+
+        var closeBtn = new Button
+        {
+            Text = "✕ 关闭",
+            BackgroundColor = Color.FromArgb("#333"),
+            TextColor = Colors.White,
+            FontSize = 16,
+            FontAttributes = FontAttributes.Bold,
+            HorizontalOptions = LayoutOptions.End,
+            Margin = new Thickness(0, 8, 16, 0),
+            WidthRequest = 120,
+            MinimumHeightRequest = 40
+        };
+
+        var infoLabel = new Label
+        {
+            Text = $"📷 {IOPath.GetFileName(imagePath)}",
+            FontSize = 12,
+            TextColor = Color.FromArgb("#CCC"),
+            HorizontalOptions = LayoutOptions.Start,
+            Margin = new Thickness(16, 8, 0, 0)
+        };
+
+        var popupPage = new ContentPage
+        {
+            Title = "发票预览",
+            BackgroundColor = Colors.Black,
+            Content = new Grid
+            {
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
+                    new RowDefinition(new GridLength(1, GridUnitType.Star))
+                },
+                Children =
+                {
+                    new Grid
+                    {
+                        BackgroundColor = Color.FromArgb("#1A1A1A"),
+                        ColumnDefinitions =
+                        {
+                            new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                            new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+                        },
+                        Children =
+                        {
+                            infoLabel.Column(0),
+                            closeBtn.Column(1)
+                        }
+                    }.Row(0),
+                    fullImage.Row(1)
+                }
+            }
+        };
+
+        closeBtn.Clicked += async (s, e) => await popupPage.Navigation.PopModalAsync();
+
+        await Navigation.PushModalAsync(popupPage);
     }
 
     private static Border BuildDetailRow(string label, string value)
@@ -846,12 +1145,21 @@ public class MainPage : ContentPage
 
     private void OnInvoiceSelected(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.CurrentSelection.FirstOrDefault() is Invoice invoice)
+        // Update selected invoices for multi-select
+        _vm.SelectedInvoices.Clear();
+        foreach (var item in e.CurrentSelection)
         {
-            _vm.SelectedInvoice = invoice;
-            _detailVm.CurrentInvoice = invoice;
+            if (item is Invoice inv)
+                _vm.SelectedInvoices.Add(inv);
         }
-        else
+
+        // Update detail panel based on last selected or single selection
+        if (e.CurrentSelection.LastOrDefault() is Invoice lastInvoice)
+        {
+            _vm.SelectedInvoice = lastInvoice;
+            _detailVm.CurrentInvoice = lastInvoice;
+        }
+        else if (e.CurrentSelection.Count == 0)
         {
             _vm.SelectedInvoice = null;
             _detailVm.CurrentInvoice = null;
@@ -908,17 +1216,208 @@ public class MainPage : ContentPage
     {
         try
         {
-            var filePath = IOPath.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                $"InvoiceAI_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            // Show date range selection dialog
+            var result = await DisplayDateRangeDialog();
+            if (!result.HasValue) return; // User cancelled
 
-            await _vm.ExportCommand.ExecuteAsync(filePath);
+            var (startDate, endDate, skipConfirmed) = result.Value;
+
+            // Determine export path
+            var configuredPath = _settingsService.Settings.ExportPath;
+            string filePath;
+            if (!string.IsNullOrWhiteSpace(configuredPath) && Directory.Exists(configuredPath))
+            {
+                filePath = IOPath.Combine(configuredPath, $"InvoiceAI_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            }
+            else
+            {
+                // Fallback: prompt user to select folder
+                var folder = await PickFolderAsync();
+                if (string.IsNullOrEmpty(folder)) return;
+                filePath = IOPath.Combine(folder, $"InvoiceAI_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            }
+
+            await _vm.ExportCommand.ExecuteAsync((filePath, startDate, endDate, skipConfirmed));
             await this.DisplayAlert("导出完成", $"已导出到:\n{filePath}", "OK");
         }
         catch (Exception ex)
         {
             await this.DisplayAlert("导出错误", ex.Message, "OK");
         }
+    }
+
+#if WINDOWS
+    private async Task<string?> PickFolderAsync()
+    {
+        var folderPicker = new Windows.Storage.Pickers.FolderPicker();
+        folderPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        folderPicker.FileTypeFilter.Add("*");
+
+        var win = this.Window;
+        var platformWnd = win.Handler?.PlatformView;
+        if (platformWnd is not Microsoft.UI.Xaml.Window xamlWindow) return null;
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xamlWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+        var folder = await folderPicker.PickSingleFolderAsync();
+        return folder?.Path;
+    }
+#else
+    private async Task<string?> PickFolderAsync()
+    {
+        await this.DisplayAlert("提示", "请手动输入导出文件夹路径", "OK");
+        return null;
+    }
+#endif
+
+    private async Task<(DateTime? Start, DateTime? End, bool SkipConfirmed)?> DisplayDateRangeDialog()
+    {
+        var tcs = new TaskCompletionSource<(DateTime? Start, DateTime? End, bool SkipConfirmed)?>();
+
+        var startPicker = new DatePicker
+        {
+            Date = DateTime.Now.AddMonths(-1),
+            Format = "yyyy-MM-dd",
+            Margin = new Thickness(0, 4)
+        };
+
+        var endPicker = new DatePicker
+        {
+            Date = DateTime.Now,
+            Format = "yyyy-MM-dd",
+            Margin = new Thickness(0, 4)
+        };
+
+        var useRangeCheckBox = new CheckBox
+        {
+            IsChecked = false,
+            Margin = new Thickness(0, 4)
+        };
+
+        var useRangeLabel = new Label
+        {
+            Text = "启用时间范围过滤",
+            FontSize = 13,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        useRangeCheckBox.CheckedChanged += (s, e) =>
+        {
+            startPicker.IsEnabled = e.Value;
+            endPicker.IsEnabled = e.Value;
+        };
+
+        startPicker.IsEnabled = false;
+        endPicker.IsEnabled = false;
+
+        var checkboxLayout = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            Children = { useRangeCheckBox, useRangeLabel }
+        };
+
+        // Skip confirmed checkbox
+        var skipConfirmedCheckBox = new CheckBox
+        {
+            IsChecked = true,
+            Margin = new Thickness(0, 4)
+        };
+
+        var skipConfirmedLabel = new Label
+        {
+            Text = "跳过已确认的发票",
+            FontSize = 13,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        var skipConfirmedLayout = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            Children = { skipConfirmedCheckBox, skipConfirmedLabel }
+        };
+
+        var exportBtn = new Button
+        {
+            Text = "导出",
+            BackgroundColor = Color.FromArgb("#388E3C"),
+            TextColor = Colors.White,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+
+        var cancelBtn = new Button
+        {
+            Text = "取消",
+            BackgroundColor = Color.FromArgb("#757575"),
+            TextColor = Colors.White,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+
+        var layout = new VerticalStackLayout
+        {
+            Spacing = 8,
+            Padding = new Thickness(16, 16),
+            Children =
+            {
+                new Label
+                {
+                    Text = "选择导出时间范围",
+                    FontSize = 16,
+                    FontAttributes = FontAttributes.Bold,
+                    HorizontalOptions = LayoutOptions.Center
+                },
+                checkboxLayout,
+                new Label { Text = "开始日期:", FontSize = 13 },
+                startPicker,
+                new Label { Text = "结束日期:", FontSize = 13 },
+                endPicker,
+                new BoxView { HeightRequest = 1, BackgroundColor = Color.FromArgb("#E0E0E0"), Margin = new Thickness(0, 4) },
+                skipConfirmedLayout,
+                exportBtn,
+                cancelBtn
+            }
+        };
+
+        ContentPage? popupPage = null;
+
+        exportBtn.Clicked += async (s, e) =>
+        {
+            if (useRangeCheckBox.IsChecked)
+            {
+                tcs.SetResult((startPicker.Date, endPicker.Date, skipConfirmedCheckBox.IsChecked));
+            }
+            else
+            {
+                tcs.SetResult((null, null, skipConfirmedCheckBox.IsChecked));
+            }
+            if (popupPage != null)
+                await popupPage.Navigation.PopModalAsync();
+        };
+
+        cancelBtn.Clicked += async (s, e) =>
+        {
+            tcs.SetResult(null);
+            if (popupPage != null)
+                await popupPage.Navigation.PopModalAsync();
+        };
+
+        popupPage = new ContentPage
+        {
+            Title = "导出选项",
+            BackgroundColor = Color.FromArgb("#F5F5F5"),
+            Content = new Border
+            {
+                BackgroundColor = Colors.White,
+                StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                StrokeThickness = 1,
+                Stroke = Color.FromArgb("#E0E0E0"),
+                Margin = new Thickness(20),
+                Content = new ScrollView { Content = layout }
+            }
+        };
+
+        await Navigation.PushModalAsync(popupPage);
+        return await tcs.Task;
     }
 
     private async void OnSettingsClicked(object? sender, EventArgs e)
@@ -930,18 +1429,26 @@ public class MainPage : ContentPage
     private async void OnSaveClicked(object? sender, EventArgs e)
     {
         await _detailVm.SaveCommand.ExecuteAsync(null);
-        await this.DisplayAlert("保存", "发票已确认保存", "OK");
+        await this.DisplayAlert("保存成功", "发票已确认保存至本地数据库（SQLite）\n\n状态已标记为「已确认」，可在数据库表中查看 IsConfirmed 字段。", "OK");
     }
 
     private async void OnDeleteClicked(object? sender, EventArgs e)
     {
-        if (_vm.SelectedInvoice == null) return;
+        var selectedCount = _vm.SelectedInvoices.Count;
+        
+        // If nothing multi-selected, fall back to single selected invoice
+        if (selectedCount == 0 && _vm.SelectedInvoice == null) return;
 
-        var confirm = await this.DisplayAlert("确认删除",
-            $"确定要删除 {_vm.SelectedInvoice.IssuerName} 的发票吗？", "删除", "取消");
+        var count = selectedCount > 0 ? selectedCount : 1;
+        var confirmMsg = count == 1
+            ? $"确定要删除 {_vm.SelectedInvoice?.IssuerName} 的发票吗？"
+            : $"确定要删除选中的 {count} 张发票吗？";
+
+        var confirm = await this.DisplayAlert("确认删除", confirmMsg, "删除", "取消");
         if (confirm)
         {
-            await _vm.DeleteInvoiceCommand.ExecuteAsync(_vm.SelectedInvoice);
+            // Pass null to trigger batch deletion from SelectedInvoices
+            await _vm.DeleteInvoiceCommand.ExecuteAsync(null);
             _detailVm.CurrentInvoice = null;
         }
     }
