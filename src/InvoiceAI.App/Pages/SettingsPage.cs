@@ -1,5 +1,6 @@
 using CommunityToolkit.Maui.Markup;
 using CommunityToolkit.Mvvm.Input;
+using InvoiceAI.App.Utils;
 using InvoiceAI.Core.ViewModels;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -18,7 +19,7 @@ public class SettingsPage : ContentPage
         BindingContext = viewModel;
 
         Title = "设置";
-        BackgroundColor = Color.FromArgb("#F5F5F5");
+        BackgroundColor = ThemeManager.Background;
 
         Content = BuildContent();
     }
@@ -100,6 +101,10 @@ public class SettingsPage : ContentPage
                     BuildSectionHeader("语言设置"),
                     BuildLanguageSelector(),
 
+                    // ─── Theme Settings ─────────────────────────
+                    BuildSectionHeader("主题设置"),
+                    BuildThemeSelector(),
+
                     // ─── Export Settings ───────────────────────────
                     BuildSectionHeader("导出设置"),
                     BuildSwitchField("导出后自动保存确认", nameof(_vm.AutoSaveAfterExport), "导出后自动将发票标记为「已确认」"),
@@ -123,7 +128,7 @@ public class SettingsPage : ContentPage
                             new Button
                             {
                                 Text = "保存",
-                                BackgroundColor = Color.FromArgb("#1976D2"),
+                                BackgroundColor = ThemeManager.BrandPrimary,
                                 TextColor = Colors.White,
                                 FontSize = 14,
                                 FontAttributes = FontAttributes.Bold,
@@ -134,7 +139,7 @@ public class SettingsPage : ContentPage
                             new Button
                             {
                                 Text = "关闭",
-                                BackgroundColor = Color.FromArgb("#757575"),
+                                BackgroundColor = ThemeManager.TextSecondary,
                                 TextColor = Colors.White,
                                 FontSize = 14,
                                 HorizontalOptions = LayoutOptions.Fill,
@@ -158,7 +163,7 @@ public class SettingsPage : ContentPage
             Text = text,
             FontSize = 16,
             FontAttributes = FontAttributes.Bold,
-            TextColor = Color.FromArgb("#333"),
+            TextColor = ThemeManager.TextPrimary,
             Margin = new Thickness(0, 16, 0, 4)
         };
     }
@@ -171,7 +176,7 @@ public class SettingsPage : ContentPage
         {
             Placeholder = placeholder,
             FontSize = 14,
-            BackgroundColor = Colors.White,
+            BackgroundColor = ThemeManager.CardBackground,
             MinimumHeightRequest = 40
         };
         entry.SetBinding(Entry.TextProperty, bindingPath);
@@ -196,7 +201,7 @@ public class SettingsPage : ContentPage
                     {
                         Text = label,
                         FontSize = 12,
-                        TextColor = Color.FromArgb("#666")
+                        TextColor = ThemeManager.TextSecondary
                     },
                     entry
                 }
@@ -218,14 +223,14 @@ public class SettingsPage : ContentPage
         {
             Text = description,
             FontSize = 11,
-            TextColor = Color.FromArgb("#999")
+            TextColor = ThemeManager.TextTertiary
         };
 
         return new Border
         {
             StrokeShape = new RoundRectangle { CornerRadius = 6 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#E0E0E0"),
+            Stroke = ThemeManager.BorderLight,
             Padding = new Thickness(12, 10),
             Content = new Grid
             {
@@ -246,6 +251,7 @@ public class SettingsPage : ContentPage
                         Text = label,
                         FontSize = 14,
                         FontAttributes = FontAttributes.Bold,
+                        TextColor = ThemeManager.TextPrimary,
                         VerticalOptions = LayoutOptions.Center
                     }.Column(0).Row(0),
                     switchCtrl.Column(1).Row(0).RowSpan(2),
@@ -272,7 +278,7 @@ public class SettingsPage : ContentPage
         var browseBtn = new Button
         {
             Text = "📁 选择",
-            BackgroundColor = Color.FromArgb("#1976D2"),
+            BackgroundColor = ThemeManager.BrandPrimary,
             TextColor = Colors.White,
             FontSize = 12,
             MinimumWidthRequest = 80,
@@ -284,7 +290,7 @@ public class SettingsPage : ContentPage
         {
             Text = description,
             FontSize = 11,
-            TextColor = Color.FromArgb("#999")
+            TextColor = ThemeManager.TextTertiary
         };
 
         // Extract property name from binding path (e.g. "_vm.ExportPath" -> "ExportPath")
@@ -321,7 +327,7 @@ public class SettingsPage : ContentPage
         {
             StrokeShape = new RoundRectangle { CornerRadius = 6 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#E0E0E0"),
+            Stroke = ThemeManager.BorderLight,
             Padding = new Thickness(12, 10),
             Content = new Grid
             {
@@ -404,7 +410,7 @@ public class SettingsPage : ContentPage
         {
             StrokeShape = new RoundRectangle { CornerRadius = 6 },
             StrokeThickness = 1,
-            Stroke = Color.FromArgb("#E0E0E0"),
+            Stroke = ThemeManager.BorderLight,
             Padding = new Thickness(0),
             Content = new VerticalStackLayout
             {
@@ -415,7 +421,7 @@ public class SettingsPage : ContentPage
                     {
                         Text = "模型",
                         FontSize = 12,
-                        TextColor = Color.FromArgb("#666")
+                        TextColor = ThemeManager.TextSecondary
                     },
                     picker
                 }
@@ -447,6 +453,38 @@ public class SettingsPage : ContentPage
         {
             Spacing = 16,
             Children = { zh, ja }
+        };
+    }
+
+    // ─── Helper: Theme Selector ─────────────────────────
+
+    private View BuildThemeSelector()
+    {
+        var autoRadio = new RadioButton
+        {
+            Content = new Label { Text = "跟随系统", FontSize = 14 },
+            Value = "Auto"
+        };
+        autoRadio.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsAutoTheme));
+
+        var lightRadio = new RadioButton
+        {
+            Content = new Label { Text = "浅色", FontSize = 14 },
+            Value = "Light"
+        };
+        lightRadio.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsLightTheme));
+
+        var darkRadio = new RadioButton
+        {
+            Content = new Label { Text = "暗色", FontSize = 14 },
+            Value = "Dark"
+        };
+        darkRadio.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsDarkTheme));
+
+        return new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children = { autoRadio, lightRadio, darkRadio }
         };
     }
 
@@ -489,7 +527,7 @@ public class SettingsPage : ContentPage
                 var catLabel = new Label
                 {
                     FontSize = 13,
-                    TextColor = Color.FromArgb("#333"),
+                    TextColor = ThemeManager.TextPrimary,
                     VerticalOptions = LayoutOptions.Center,
                     VerticalTextAlignment = TextAlignment.Center,
                     LineBreakMode = LineBreakMode.TailTruncation
@@ -500,7 +538,7 @@ public class SettingsPage : ContentPage
                 {
                     Text = "✕",
                     BackgroundColor = Colors.Transparent,
-                    TextColor = Color.FromArgb("#F44336"),
+                    TextColor = ThemeManager.Error,
                     FontSize = 12,
                     MinimumWidthRequest = 20,
                     MinimumHeightRequest = 20,
@@ -521,7 +559,7 @@ public class SettingsPage : ContentPage
                     Padding = new Thickness(8, 0),
                     StrokeShape = new RoundRectangle { CornerRadius = 8 },
                     StrokeThickness = 1,
-                    Stroke = Color.FromArgb("#1976D2"),
+                    Stroke = ThemeManager.BrandPrimary,
                     BackgroundColor = Color.FromArgb("#E3F2FD"),
                     HorizontalOptions = LayoutOptions.Start,
                     Content = chipContent
@@ -549,7 +587,7 @@ public class SettingsPage : ContentPage
     private async void OnTestOcrClicked(object? sender, EventArgs e)
     {
         _ocrTestResult.Text = "正在测试...";
-        _ocrTestResult.TextColor = Color.FromArgb("#1976D2");
+        _ocrTestResult.TextColor = ThemeManager.Info;
         try
         {
             await _vm.TestBaiduConnectionCommand.ExecuteAsync(null);
@@ -560,14 +598,14 @@ public class SettingsPage : ContentPage
         }
         _ocrTestResult.Text = _vm.TestResult;
         _ocrTestResult.TextColor = _vm.TestResult.Contains("成功")
-            ? Color.FromArgb("#388E3C")
-            : Color.FromArgb("#F44336");
+            ? ThemeManager.Success
+            : ThemeManager.Error;
     }
 
     private async void OnTestGlmClicked(object? sender, EventArgs e)
     {
         _glmTestResult.Text = "正在测试...";
-        _glmTestResult.TextColor = Color.FromArgb("#1976D2");
+        _glmTestResult.TextColor = ThemeManager.Info;
         try
         {
             await _vm.TestGlmConnectionCommand.ExecuteAsync(null);
@@ -578,8 +616,8 @@ public class SettingsPage : ContentPage
         }
         _glmTestResult.Text = _vm.TestResult;
         _glmTestResult.TextColor = _vm.TestResult.Contains("成功")
-            ? Color.FromArgb("#388E3C")
-            : Color.FromArgb("#F44336");
+            ? ThemeManager.Success
+            : ThemeManager.Error;
     }
 
     private async void OnCloseClicked(object? sender, EventArgs e)
