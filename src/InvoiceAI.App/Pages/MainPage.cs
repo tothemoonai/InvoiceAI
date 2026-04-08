@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Linq;
 using CommunityToolkit.Maui.Markup;
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
@@ -22,11 +23,14 @@ public class MainPage : ContentPage
     private VerticalStackLayout _detailContent = null!;
     private Image _invoicePreviewImage = null!;
     private Border _importOverlay = null!;
-    private Border _dropZone = null!;
     private ActivityIndicator _busyIndicator = null!;
     private Label _statusBar = null!;
     private Label _importStatusLabel = null!;
     private ProgressBar _importProgressBar = null!;
+    private Button _categoryToggleButton = null!;
+
+    private LayoutMode _layoutMode = LayoutMode.Standard;
+    private enum LayoutMode { Expanded, Standard, Compact }
 
     public MainPage(
         MainViewModel viewModel,
@@ -76,7 +80,7 @@ public class MainPage : ContentPage
         _statusBar.SetBinding(Label.TextProperty, nameof(_vm.StatusMessage));
 
         _importOverlay = BuildImportOverlay();
-        _dropZone = BuildDropZone();
+        _categoryToggleButton = BuildCategoryToggleButton();
 
         Content = new Grid
         {
@@ -88,20 +92,20 @@ public class MainPage : ContentPage
             },
             ColumnDefinitions =
             {
-                new ColumnDefinition(180),
-                new ColumnDefinition(280),
+                new ColumnDefinition(150),  // Standard 默认
+                new ColumnDefinition(250),
                 new ColumnDefinition(new GridLength(1, GridUnitType.Star))
             },
             Children =
             {
                 BuildTitleBar().Row(0).ColumnSpan(3),
+                _categoryToggleButton.Row(1).Column(0),
                 BuildCategoryPanel().Row(1).Column(0),
                 BuildInvoiceListPanel().Row(1).Column(1),
                 BuildDetailPanel().Row(1).Column(2),
                 _statusBar.Row(2).ColumnSpan(3),
                 _busyIndicator.Row(1).ColumnSpan(3),
-                _importOverlay.Row(1).ColumnSpan(3),
-                _dropZone.Row(1).ColumnSpan(3)
+                _importOverlay.Row(1).ColumnSpan(3)
             }
         };
     }
@@ -755,56 +759,6 @@ public class MainPage : ContentPage
         return overlay;
     }
 
-    // ─── Drop Zone (visual overlay for OS file drag-drop) ───
-
-    private Border BuildDropZone()
-    {
-        return new Border
-        {
-            IsVisible = false,
-            BackgroundColor = Color.FromArgb("#33000000"),
-            StrokeShape = new RoundRectangle { CornerRadius = 12 },
-            StrokeThickness = 3,
-            Stroke = ThemeManager.BrandPrimary,
-            Margin = new Thickness(8),
-            Content = new VerticalStackLayout
-            {
-                HorizontalOptions = LayoutOptions.Center,
-                VerticalOptions = LayoutOptions.Center,
-                Spacing = 12,
-                Children =
-                {
-                    new Label
-                    {
-                        Text = "📥",
-                        FontSize = 48,
-                        HorizontalOptions = LayoutOptions.Center
-                    },
-                    new Label
-                    {
-                        Text = "拖拽发票文件到此处",
-                        FontSize = 20,
-                        FontAttributes = FontAttributes.Bold,
-                        TextColor = Colors.White,
-                        HorizontalOptions = LayoutOptions.Center
-                    },
-                    new Label
-                    {
-                        Text = "支持 JPG、PNG、PDF 格式",
-                        FontSize = 14,
-                        TextColor = ThemeManager.TextSecondary,
-                        HorizontalOptions = LayoutOptions.Center
-                    }
-                }
-            }
-        };
-    }
-
-    public void ShowDropZone(bool visible)
-    {
-        MainThread.BeginInvokeOnMainThread(() => _dropZone.IsVisible = visible);
-    }
-
     // ─── Helper: Detail Row ───────────────────────────────────
 
     private void RefreshDetailContent()
@@ -1075,6 +1029,116 @@ public class MainPage : ContentPage
                 }
             });
         };
+    }
+
+    // ─── Responsive Layout ────────────────────────────────────
+
+    private Button BuildCategoryToggleButton()
+    {
+        var btn = new Button
+        {
+            Text = "☰",
+            FontSize = 20,
+            BackgroundColor = ThemeManager.BrandPrimary,
+            TextColor = Colors.White,
+            WidthRequest = 40,
+            HeightRequest = 40,
+            CornerRadius = 20,
+            Padding = new Thickness(0),
+            HorizontalOptions = LayoutOptions.Start,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(8, 8, 0, 0),
+            IsVisible = false
+        };
+
+        btn.Clicked += (s, e) =>
+        {
+            if (Content is not Grid grid) return;
+            var catPanel = grid.Children.OfType<View>().FirstOrDefault(c => Grid.GetColumn(c) == 0 && Grid.GetRow(c) == 1 && c != _categoryToggleButton);
+            if (catPanel != null)
+            {
+                catPanel.IsVisible = !catPanel.IsVisible;
+            }
+        };
+
+        return btn;
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+
+        var newMode = width > 1200 ? LayoutMode.Expanded
+                      : width >= 900 ? LayoutMode.Standard
+                      : LayoutMode.Compact;
+
+        if (newMode != _layoutMode)
+        {
+            _layoutMode = newMode;
+            MainThread.BeginInvokeOnMainThread(ApplyLayoutMode);
+        }
+    }
+
+    private void ApplyLayoutMode()
+    {
+        if (Content is not Grid grid) return;
+
+        switch (_layoutMode)
+        {
+            case LayoutMode.Expanded:
+                grid.ColumnDefinitions[0] = new ColumnDefinition(180);
+                grid.ColumnDefinitions[1] = new ColumnDefinition(320);
+                grid.ColumnDefinitions[2] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
+                SetCategoryPanelVisible(true);
+                SetDetailPanelVisible(true);
+                break;
+
+            case LayoutMode.Standard:
+                grid.ColumnDefinitions[0] = new ColumnDefinition(150);
+                grid.ColumnDefinitions[1] = new ColumnDefinition(250);
+                grid.ColumnDefinitions[2] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
+                SetCategoryPanelVisible(true);
+                SetDetailPanelVisible(true);
+                break;
+
+            case LayoutMode.Compact:
+                grid.ColumnDefinitions[0] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
+                grid.ColumnDefinitions[1] = new ColumnDefinition(0);
+                grid.ColumnDefinitions[2] = new ColumnDefinition(0);
+                SetCategoryPanelVisible(false);
+                SetDetailPanelVisible(true);
+                break;
+        }
+    }
+
+    private void SetCategoryPanelVisible(bool visible)
+    {
+        if (Content is not Grid grid) return;
+        foreach (var child in grid.Children)
+        {
+            if (child is View v && Grid.GetColumn(v) == 0 && Grid.GetRow(v) == 1 
+                && v != _categoryToggleButton 
+                && v != _importOverlay 
+                && v != _busyIndicator)
+            {
+                v.IsVisible = visible;
+            }
+        }
+        _categoryToggleButton.IsVisible = !visible;
+    }
+
+    private void SetDetailPanelVisible(bool visible)
+    {
+        if (Content is not Grid grid) return;
+        foreach (var child in grid.Children)
+        {
+            if (child is View v && Grid.GetColumn(v) == 2 && Grid.GetRow(v) == 1
+                && v != _importOverlay
+                && v != _busyIndicator)
+            {
+                v.IsVisible = visible;
+            }
+        }
     }
 
     private void OnCategorySelected(object? sender, SelectionChangedEventArgs e)
