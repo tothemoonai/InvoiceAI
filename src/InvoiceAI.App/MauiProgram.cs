@@ -11,7 +11,31 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
-        builder.UseMauiApp<App>();
+        builder
+            .UseMauiApp<App>()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+
+                // 新增: 标题字体 (Poppins)
+                fonts.AddFont("Poppins-Bold.ttf", "PoppinsBold");
+                fonts.AddFont("Poppins-SemiBold.ttf", "PoppinsSemiBold");
+
+                // 新增: 中文 (Noto Sans SC)
+                fonts.AddFont("NotoSansSC-Regular.ttf", "NotoSansSCRegular");
+                fonts.AddFont("NotoSansSC-Medium.ttf", "NotoSansSCMedium");
+
+                // 新增: 日文 (Noto Sans JP)
+                fonts.AddFont("NotoSansJP-Regular.ttf", "NotoSansJPRegular");
+                fonts.AddFont("NotoSansJP-Medium.ttf", "NotoSansJPMedium");
+
+                // 新增: 数字/金额 (JetBrains Mono)
+                fonts.AddFont("JetBrainsMono-Medium.ttf", "JetBrainsMonoMedium");
+
+                // 新增: 辅助文字 (Inter)
+                fonts.AddFont("Inter-Regular.ttf", "InterRegular");
+            });
 
         // Database
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "invoices.db");
