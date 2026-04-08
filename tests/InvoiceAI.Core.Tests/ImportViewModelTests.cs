@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using InvoiceAI.Core.Helpers;
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Models;
@@ -12,9 +13,13 @@ public class ImportViewModelTests
     private readonly Mock<IGlmService> _glmMock = new();
     private readonly Mock<IInvoiceService> _invoiceMock = new();
     private readonly Mock<IFileService> _fileMock = new();
+    private readonly Mock<IAppSettingsService> _settingsMock = new();
 
     private ImportViewModel CreateVm()
-        => new(_ocrMock.Object, _glmMock.Object, _invoiceMock.Object, _fileMock.Object);
+    {
+        _settingsMock.Setup(s => s.Settings).Returns(new AppSettings());
+        return new(_ocrMock.Object, _glmMock.Object, _invoiceMock.Object, _fileMock.Object, _settingsMock.Object);
+    }
 
     private static GlmInvoiceResponse CreateValidResponse() => new()
     {
