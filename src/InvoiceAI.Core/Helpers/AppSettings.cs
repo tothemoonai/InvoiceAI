@@ -5,6 +5,10 @@ public class AppSettings
     public BaiduOcrSettings BaiduOcr { get; set; } = new();
     public GlmSettings Glm { get; set; } = new();
     public string Language { get; set; } = "zh";
+    
+    // 主题模式 ("Auto" | "Light" | "Dark")
+    public string ThemeMode { get; set; } = "Auto";
+    
     public bool AutoSaveAfterExport { get; set; } = false;
     public string ExportPath { get; set; } = string.Empty;
     public string InvoiceArchivePath { get; set; } = string.Empty;

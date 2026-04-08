@@ -16,6 +16,12 @@ public partial class App : Application
         _settingsService = settingsService;
         _dbContext = dbContext;
         _services = services;
+
+        // 监听系统主题变化
+        RequestedThemeChanged += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"Theme changed: {RequestedTheme}");
+        };
     }
 
     protected override async void OnStart()
@@ -27,6 +33,9 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
+        // 应用主题设置
+        ApplyThemeMode();
+
         try
         {
             var page = Handler.MauiContext.Services.GetRequiredService<Pages.MainPage>();
@@ -49,6 +58,19 @@ public partial class App : Application
                 $"{DateTime.Now:O}\n{ex}");
             throw;
         }
+    }
+
+    /// <summary>
+    /// 根据 AppSettings.ThemeMode 设置应用主题
+    /// </summary>
+    private void ApplyThemeMode()
+    {
+        UserAppTheme = _settingsService.Settings.ThemeMode switch
+        {
+            "Light" => AppTheme.Light,
+            "Dark" => AppTheme.Dark,
+            _ => AppTheme.Unspecified  // Auto: 跟随系统
+        };
     }
 
 #if WINDOWS
