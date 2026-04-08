@@ -117,6 +117,7 @@ public partial class SettingsViewModel : ObservableObject
         RefreshModelList(_settingsService.Settings);
     }
     [ObservableProperty] private string _selectedLanguage = "zh";
+    [ObservableProperty] private string _themeMode = "Auto";
     [ObservableProperty] private ObservableCollection<string> _categories = [];
     [ObservableProperty] private string _newCategory = string.Empty;
     [ObservableProperty] private string _testResult = string.Empty;
@@ -131,6 +132,7 @@ public partial class SettingsViewModel : ObservableObject
         LoadGlmFieldsForProvider(s);
         RefreshModelList(s);
         SelectedLanguage = s.Language;
+        ThemeMode = s.ThemeMode;
         AutoSaveAfterExport = s.AutoSaveAfterExport;
         ExportPath = s.ExportPath;
         InvoiceArchivePath = s.InvoiceArchivePath;
@@ -245,6 +247,55 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    // Theme helpers
+    public bool IsAutoTheme
+    {
+        get => ThemeMode == "Auto";
+        set
+        {
+            if (value)
+            {
+                ThemeMode = "Auto";
+                ApplyTheme();
+            }
+        }
+    }
+
+    public bool IsLightTheme
+    {
+        get => ThemeMode == "Light";
+        set
+        {
+            if (value)
+            {
+                ThemeMode = "Light";
+                ApplyTheme();
+            }
+        }
+    }
+
+    public bool IsDarkTheme
+    {
+        get => ThemeMode == "Dark";
+        set
+        {
+            if (value)
+            {
+                ThemeMode = "Dark";
+                ApplyTheme();
+            }
+        }
+    }
+
+    private void ApplyTheme()
+    {
+        // Theme application is handled by the App layer via event
+        ThemeChanged?.Invoke(this, ThemeMode);
+    }
+
+    /// <summary>Event raised when the theme mode changes. Consumed by the App layer.</summary>
+    public static event EventHandler<string>? ThemeChanged;
+
     [RelayCommand]
     private async Task SaveAsync()
     {
@@ -272,6 +323,7 @@ public partial class SettingsViewModel : ObservableObject
                 break;
         }
         s.Language = SelectedLanguage;
+        s.ThemeMode = ThemeMode;
         s.AutoSaveAfterExport = AutoSaveAfterExport;
         s.ExportPath = ExportPath;
         s.InvoiceArchivePath = InvoiceArchivePath;
