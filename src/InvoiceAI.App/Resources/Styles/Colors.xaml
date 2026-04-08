@@ -42,4 +42,53 @@
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+
+    <!-- ====== 品牌色 ====== -->
+    <Color x:Key="BrandPrimary">#6C5CE7</Color>
+    <Color x:Key="BrandPrimaryDark">#4834D4</Color>
+    <Color x:Key="BrandAccent">#00CEC9</Color>
+    <Color x:Key="BrandAccentDark">#00B5B0</Color>
+
+    <!-- ====== 功能色 ====== -->
+    <Color x:Key="Success">#00B894</Color>
+    <Color x:Key="Error">#FF6B6B</Color>
+    <Color x:Key="Warning">#FECA57</Color>
+    <Color x:Key="Info">#54A0FF</Color>
+
+    <!-- ====== Light 主题 - 背景色 ====== -->
+    <Color x:Key="BackgroundPrimary">#F8F9FA</Color>
+    <Color x:Key="BackgroundSecondary">#FFFFFF</Color>
+    <Color x:Key="BackgroundTertiary">#ECF0F1</Color>
+
+    <!-- ====== Light 主题 - 文字色 ====== -->
+    <Color x:Key="TextPrimary">#2D3436</Color>
+    <Color x:Key="TextSecondary">#636E72</Color>
+    <Color x:Key="TextTertiary">#B2BEC3</Color>
+
+    <!-- ====== Light 主题 - 边框/分割线 ====== -->
+    <Color x:Key="BorderLight">#E0E6ED</Color>
+    <Color x:Key="BorderMedium">#CBD5E0</Color>
+    <Color x:Key="Divider">#F1F3F5</Color>
+
+    <!-- ====== Light 主题 - 状态色 ====== -->
+    <Color x:Key="SelectedBackground">#E8EAF6</Color>
+    <Color x:Key="HoverBackground">#F5F3FF</Color>
+
+    <!-- ====== Dark 主题 - 背景色 ====== -->
+    <Color x:Key="DarkBackgroundPrimary">#1A1A2E</Color>
+    <Color x:Key="DarkBackgroundSecondary">#16213E</Color>
+    <Color x:Key="DarkBackgroundTertiary">#0F3460</Color>
+
+    <!-- ====== Dark 主题 - 文字色 ====== -->
+    <Color x:Key="DarkTextPrimary">#EAEAEA</Color>
+    <Color x:Key="DarkTextSecondary">#B0B0B0</Color>
+    <Color x:Key="DarkTextTertiary">#707070</Color>
+
+    <!-- ====== Dark 主题 - 边框/分割线 ====== -->
+    <Color x:Key="DarkBorder">#2D3748</Color>
+    <Color x:Key="DarkDivider">#2D3748</Color>
+
+    <!-- ====== Dark 主题 - 状态色 ====== -->
+    <Color x:Key="DarkSelectedBackground">#1E3A5F</Color>
+    <Color x:Key="DarkHoverBackground">#2D2B55</Color>
 </ResourceDictionary>
