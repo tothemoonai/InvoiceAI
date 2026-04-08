@@ -1059,9 +1059,10 @@ public class MainPage : ContentPage
                 switch (e.PropertyName)
                 {
                     case nameof(_importVm.IsProcessing):
-                        _importOverlay.IsVisible = _importVm.IsProcessing;
+                        // 仅在处理完成后隐藏覆盖层
                         if (!_importVm.IsProcessing)
                         {
+                            _importOverlay.IsVisible = false;
                             _ = _vm.LoadDataCommand.ExecuteAsync(null);
                         }
                         break;
@@ -1114,12 +1115,15 @@ public class MainPage : ContentPage
             var filePaths = await PickFilesAsync("选择发票文件");
             if (filePaths != null && filePaths.Length > 0)
             {
+                // 手动显示导入覆盖层
+                _importOverlay.IsVisible = true;
                 await _importVm.ProcessFilesCommand.ExecuteAsync(filePaths);
             }
         }
         catch (Exception ex)
         {
             await this.DisplayAlert("导入错误", ex.Message, "OK");
+            _importOverlay.IsVisible = false;
         }
     }
 
