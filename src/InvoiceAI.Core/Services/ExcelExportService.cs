@@ -5,15 +5,28 @@ namespace InvoiceAI.Core.Services;
 
 public class ExcelExportService : IExcelExportService
 {
-    public async Task<string> ExportAsync(List<Invoice> invoices, string filePath)
+    public async Task<string> ExportAsync(List<Invoice> invoices, string filePath, DateTime? startDate = null, DateTime? endDate = null)
     {
         var dir = Path.GetDirectoryName(filePath)!;
         Directory.CreateDirectory(dir);
 
+        // Filter by date range if provided
+        var filteredInvoices = invoices;
+        if (startDate.HasValue || endDate.HasValue)
+        {
+            filteredInvoices = invoices.Where(i =>
+            {
+                if (!i.TransactionDate.HasValue) return false;
+                if (startDate.HasValue && i.TransactionDate.Value < startDate.Value) return false;
+                if (endDate.HasValue && i.TransactionDate.Value > endDate.Value) return false;
+                return true;
+            }).ToList();
+        }
+
         var rows = new List<Dictionary<string, object?>>();
 
         // Header row
-        foreach (var inv in invoices)
+        foreach (var inv in filteredInvoices)
         {
             rows.Add(new Dictionary<string, object?>
             {
@@ -43,9 +56,9 @@ public class ExcelExportService : IExcelExportService
             ["登録番号"] = "",
             ["内容"] = "",
             ["分类"] = "合计",
-            ["税抜金額"] = invoices.Sum(i => i.TaxExcludedAmount ?? 0),
-            ["税込金額"] = invoices.Sum(i => i.TaxIncludedAmount ?? 0),
-            ["消費税額"] = invoices.Sum(i => i.TaxAmount ?? 0),
+            ["税抜金額"] = filteredInvoices.Sum(i => i.TaxExcludedAmount ?? 0),
+            ["税込金額"] = filteredInvoices.Sum(i => i.TaxIncludedAmount ?? 0),
+            ["消費税額"] = filteredInvoices.Sum(i => i.TaxAmount ?? 0),
             ["适格状态"] = "",
             ["缺失项"] = ""
         });

@@ -8,6 +8,7 @@ public interface IInvoiceService
     Task<List<Invoice>> GetByCategoryAsync(string category);
     Task<List<Invoice>> GetByDateRangeAsync(DateTime start, DateTime end);
     Task<List<Invoice>> GetUnconfirmedAsync();
+    Task<List<Invoice>> GetConfirmedAsync();
     Task<Invoice?> GetByIdAsync(int id);
     Task<Invoice> SaveAsync(Invoice invoice);
     Task UpdateAsync(Invoice invoice);

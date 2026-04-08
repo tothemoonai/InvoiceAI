@@ -17,17 +17,20 @@ public partial class ImportViewModel : ObservableObject
     private readonly IGlmService _glmService;
     private readonly IInvoiceService _invoiceService;
     private readonly IFileService _fileService;
+    private readonly IAppSettingsService _settingsService;
 
     public ImportViewModel(
         IBaiduOcrService ocrService,
         IGlmService glmService,
         IInvoiceService invoiceService,
-        IFileService fileService)
+        IFileService fileService,
+        IAppSettingsService settingsService)
     {
         _ocrService = ocrService;
         _glmService = glmService;
         _invoiceService = invoiceService;
         _fileService = fileService;
+        _settingsService = settingsService;
     }
 
     [ObservableProperty] private ObservableCollection<ImportItem> _importItems = [];
@@ -188,6 +191,20 @@ public partial class ImportViewModel : ObservableObject
                 var invoice = MapToInvoice(glm, ocrText, supported[idx], hash);
                 invoice = await _invoiceService.SaveAsync(invoice);
                 Results.Add(invoice);
+
+                // Archive the invoice file if path is configured
+                var archivePath = _settingsService.Settings.InvoiceArchivePath;
+                if (!string.IsNullOrWhiteSpace(archivePath))
+                {
+                    var sourceFile = supported[idx];
+                    await _fileService.CopyToInvoiceArchiveAsync(
+                        sourceFile,
+                        archivePath,
+                        invoice.Category,
+                        invoice.IssuerName,
+                        invoice.TransactionDate);
+                }
+
                 var tokenInfo = glm.TotalTokens > 0 ? $" (tokens: {glm.TotalTokens})" : "";
                 ImportItems[idx].Status = $"✅ 完成{tokenInfo}";
             }
