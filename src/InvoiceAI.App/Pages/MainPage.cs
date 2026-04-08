@@ -1102,11 +1102,12 @@ public class MainPage : ContentPage
                 break;
 
             case LayoutMode.Compact:
-                grid.ColumnDefinitions[0] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
-                grid.ColumnDefinitions[1] = new ColumnDefinition(0);
+                // 发票列表在 Col 1，必须让 Col 1 占满，Col 0 和 Col 2 为 0
+                grid.ColumnDefinitions[0] = new ColumnDefinition(0);
+                grid.ColumnDefinitions[1] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
                 grid.ColumnDefinitions[2] = new ColumnDefinition(0);
                 SetCategoryPanelVisible(false);
-                SetDetailPanelVisible(true);
+                SetDetailPanelVisible(false);
                 break;
         }
     }
