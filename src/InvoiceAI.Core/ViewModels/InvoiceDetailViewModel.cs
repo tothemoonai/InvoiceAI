@@ -56,14 +56,6 @@ public partial class InvoiceDetailViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SaveAsync()
-    {
-        if (CurrentInvoice == null) return;
-        CurrentInvoice.IsConfirmed = true;
-        await _invoiceService.UpdateAsync(CurrentInvoice);
-    }
-
-    [RelayCommand]
     private async Task UpdateCategoryAsync(string category)
     {
         if (CurrentInvoice == null) return;
