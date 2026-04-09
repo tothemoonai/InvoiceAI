@@ -1311,8 +1311,10 @@ public class MainPage : ContentPage
             var viewModel = _services.GetRequiredService<InvoiceAI.Core.ViewModels.SavedInvoicesViewModel>();
             var invoiceService = _services.GetRequiredService<IInvoiceService>();
             var settingsService = _services.GetRequiredService<IAppSettingsService>();
-            var savedPage = new SavedInvoicesWindow(viewModel, invoiceService, settingsService);
-            await Navigation.PushAsync(savedPage);
+            var savedWindow = new SavedInvoicesWindow(viewModel, invoiceService, settingsService);
+            var navPage = new NavigationPage(savedWindow);
+            var window = new Window(navPage);
+            Application.Current!.OpenWindow(window);
         }
         catch (Exception ex)
         {
