@@ -42,7 +42,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _statusMessage = string.Empty;
-    [ObservableProperty] private bool _showConfirmedOnly;
 
     // Load data
     [RelayCommand]
@@ -51,7 +50,8 @@ public partial class MainViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var invoices = await _invoiceService.GetAllAsync();
+            // Default to unconfirmed invoices only
+            var invoices = await _invoiceService.GetUnconfirmedAsync();
             Invoices.Clear();
             foreach (var inv in invoices) Invoices.Add(inv);
 
@@ -75,28 +75,16 @@ public partial class MainViewModel : ObservableObject
         await RefreshInvoiceListAsync();
     }
 
-    // Toggle confirmed filter
-    partial void OnShowConfirmedOnlyChanged(bool value)
-    {
-        _ = RefreshInvoiceListAsync();
-    }
-
     private async Task RefreshInvoiceListAsync()
     {
         IsBusy = true;
         try
         {
+            // Only show unconfirmed invoices
             var invoices = SelectedCategory == "全部"
-                ? (ShowConfirmedOnly
-                    ? await _invoiceService.GetConfirmedAsync()
-                    : await _invoiceService.GetAllAsync())
-                : await _invoiceService.GetByCategoryAsync(SelectedCategory);
-
-            if (ShowConfirmedOnly && SelectedCategory != "全部")
-            {
-                // Additional filtering: only confirmed items within category
-                invoices = invoices.Where(i => i.IsConfirmed).ToList();
-            }
+                ? await _invoiceService.GetUnconfirmedAsync()
+                : (await _invoiceService.GetByCategoryAsync(SelectedCategory))
+                    .Where(i => !i.IsConfirmed).ToList();
 
             Invoices.Clear();
             foreach (var inv in invoices) Invoices.Add(inv);
@@ -220,6 +208,14 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = $"导出失败: {ex.Message}";
         }
         finally { IsBusy = false; }
+    }
+
+    // Update invoice
+    [RelayCommand]
+    private async Task UpdateInvoiceAsync(Invoice? invoice)
+    {
+        if (invoice == null) return;
+        await _invoiceService.UpdateAsync(invoice);
     }
 
     // Delete

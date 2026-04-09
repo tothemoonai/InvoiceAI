@@ -375,28 +375,11 @@ public class MainPage : ContentPage
         searchBar.SetBinding(SearchBar.SearchCommandProperty, nameof(_vm.SearchCommand));
         searchBar.SetBinding(SearchBar.TextProperty, nameof(_vm.SearchText));
 
-        // Confirmed filter toggle
-        var confirmedSwitch = new Switch
-        {
-            HorizontalOptions = LayoutOptions.End,
-            Margin = new Thickness(0, 4, 12, 0)
-        };
-        confirmedSwitch.SetBinding(Switch.IsToggledProperty, nameof(_vm.ShowConfirmedOnly));
-
-        var confirmedLabel = new Label
-        {
-            Text = "仅显示已确认",
-            FontSize = 12,
-            TextColor = ThemeManager.TextSecondary,
-            VerticalOptions = LayoutOptions.Center
-        };
-
         var filterRow = new HorizontalStackLayout
         {
             Spacing = 8,
             Padding = new Thickness(8, 4, 8, 0),
             HorizontalOptions = LayoutOptions.End,
-            Children = { confirmedLabel, confirmedSwitch }
         };
 
         // Saved invoices header
@@ -1345,7 +1328,9 @@ public class MainPage : ContentPage
             return;
         }
 
-        await _detailVm.SaveCommand.ExecuteAsync(null);
+        // Save the invoice
+        _detailVm.CurrentInvoice.IsConfirmed = true;
+        await _vm.UpdateInvoiceCommand.ExecuteAsync(_detailVm.CurrentInvoice);
 
         // 刷新列表以更新确认标记
         await _vm.LoadDataCommand.ExecuteAsync(null);
