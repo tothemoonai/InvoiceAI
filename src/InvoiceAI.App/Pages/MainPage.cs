@@ -27,10 +27,9 @@ public class MainPage : ContentPage
     private Label _statusBar = null!;
     private Label _importStatusLabel = null!;
     private ProgressBar _importProgressBar = null!;
-    private Button _categoryToggleButton = null!;
 
     private LayoutMode _layoutMode = LayoutMode.Standard;
-    private enum LayoutMode { Expanded, Standard, Compact }
+    private enum LayoutMode { Expanded, Standard }
 
     public MainPage(
         MainViewModel viewModel,
@@ -80,7 +79,6 @@ public class MainPage : ContentPage
         _statusBar.SetBinding(Label.TextProperty, nameof(_vm.StatusMessage));
 
         _importOverlay = BuildImportOverlay();
-        _categoryToggleButton = BuildCategoryToggleButton();
 
         Content = new Grid
         {
@@ -99,7 +97,6 @@ public class MainPage : ContentPage
             Children =
             {
                 BuildTitleBar().Row(0).ColumnSpan(3),
-                _categoryToggleButton.Row(1).Column(0),
                 BuildCategoryPanel().Row(1).Column(0),
                 BuildInvoiceListPanel().Row(1).Column(1),
                 BuildDetailPanel().Row(1).Column(2),
@@ -259,23 +256,25 @@ public class MainPage : ContentPage
                 };
                 typeBadge.SetBinding(Border.BackgroundColorProperty, nameof(Invoice.InvoiceType));
 
-                // Date
+                // Date + Amount (on the same line)
                 var dateLabel = new Label
                 {
                     FontSize = 12,
-                    TextColor = ThemeManager.TextSecondary
+                    TextColor = ThemeManager.TextSecondary,
+                    VerticalTextAlignment = TextAlignment.Center
                 };
                 dateLabel.SetBinding(Label.TextProperty, nameof(Invoice.TransactionDate), stringFormat: "{0:yyyy-MM-dd}");
 
-                // Amount
                 var amountLabel = new Label
                 {
                     FontSize = 12,
                     TextColor = ThemeManager.BrandPrimary,
                     FontAttributes = FontAttributes.Bold,
-                    HorizontalOptions = LayoutOptions.End
+                    VerticalTextAlignment = TextAlignment.Center,
+                    LineBreakMode = LineBreakMode.NoWrap,
+                    MaxLines = 1
                 };
-                amountLabel.SetBinding(Label.TextProperty, nameof(Invoice.TaxIncludedAmount), stringFormat: "¥{0:N0}");
+                amountLabel.SetBinding(Label.TextProperty, nameof(Invoice.TaxIncludedAmount), stringFormat: " ¥{0:N0}");
 
                 // Category
                 var catLabel = new Label
@@ -284,6 +283,22 @@ public class MainPage : ContentPage
                     TextColor = ThemeManager.TextTertiary
                 };
                 catLabel.SetBinding(Label.TextProperty, nameof(Invoice.Category));
+
+                // Confirmed badge
+                var confirmedBadge = new Border
+                {
+                    Padding = new Thickness(6, 2),
+                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
+                    StrokeThickness = 0,
+                    BackgroundColor = ThemeManager.Success,
+                    HorizontalOptions = LayoutOptions.End,
+                    Content = new Label
+                    {
+                        Text = "✅",
+                        FontSize = 10
+                    }
+                };
+                confirmedBadge.SetBinding(IsVisibleProperty, nameof(Invoice.IsConfirmed));
 
                 var content = new Grid
                 {
@@ -303,49 +318,12 @@ public class MainPage : ContentPage
                     {
                         issuerLabel.Row(0).Column(0),
                         typeBadge.Row(0).Column(1),
-                        dateLabel.Row(1).Column(0),
-                        amountLabel.Row(1).Column(1),
-                        catLabel.Row(2).Column(0).ColumnSpan(2)
-                    }
-                };
-
-                // Confirmed badge
-                var confirmedBadge = new Border
-                {
-                    Padding = new Thickness(6, 2),
-                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
-                    StrokeThickness = 0,
-                    BackgroundColor = ThemeManager.Success,
-                    HorizontalOptions = LayoutOptions.End,
-                    Content = new Label
-                    {
-                        Text = "✅",
-                        FontSize = 10
-                    }
-                };
-                confirmedBadge.SetBinding(IsVisibleProperty, nameof(Invoice.IsConfirmed));
-
-                var contentWithBadge = new Grid
-                {
-                    RowDefinitions =
-                    {
-                        new RowDefinition(new GridLength(1, GridUnitType.Auto)),
-                        new RowDefinition(new GridLength(1, GridUnitType.Auto)),
-                        new RowDefinition(new GridLength(1, GridUnitType.Auto))
-                    },
-                    ColumnDefinitions =
-                    {
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
-                    },
-                    Children =
-                    {
-                        issuerLabel.Row(0).Column(0),
-                        typeBadge.Row(0).Column(1),
                         confirmedBadge.Row(0).Column(2),
-                        dateLabel.Row(1).Column(0),
-                        amountLabel.Row(1).Column(1),
+                        new HorizontalStackLayout
+                        {
+                            Spacing = 0,
+                            Children = { dateLabel, amountLabel }
+                        }.Row(1).Column(0).ColumnSpan(2),
                         catLabel.Row(2).Column(0).ColumnSpan(3)
                     }
                 };
@@ -359,7 +337,7 @@ public class MainPage : ContentPage
                     StrokeThickness = 2,
                     Stroke = ThemeManager.BorderLight,
                     MinimumHeightRequest = 72,
-                    Content = contentWithBadge
+                    Content = content
                 };
 
                 // Visual state for selected items — make it obvious
@@ -971,7 +949,8 @@ public class MainPage : ContentPage
                         Text = value,
                         FontSize = 13,
                         FontAttributes = FontAttributes.Bold,
-                        LineBreakMode = LineBreakMode.TailTruncation,
+                        LineBreakMode = LineBreakMode.NoWrap,
+                        MaxLines = 1,
                         VerticalOptions = LayoutOptions.Center
                     }.Column(1)
                 }
@@ -1031,46 +1010,11 @@ public class MainPage : ContentPage
         };
     }
 
-    // ─── Responsive Layout ────────────────────────────────────
-
-    private Button BuildCategoryToggleButton()
-    {
-        var btn = new Button
-        {
-            Text = "☰",
-            FontSize = 20,
-            BackgroundColor = ThemeManager.BrandPrimary,
-            TextColor = Colors.White,
-            WidthRequest = 40,
-            HeightRequest = 40,
-            CornerRadius = 20,
-            Padding = new Thickness(0),
-            HorizontalOptions = LayoutOptions.Start,
-            VerticalOptions = LayoutOptions.Start,
-            Margin = new Thickness(8, 8, 0, 0),
-            IsVisible = false
-        };
-
-        btn.Clicked += (s, e) =>
-        {
-            if (Content is not Grid grid) return;
-            var catPanel = grid.Children.OfType<View>().FirstOrDefault(c => Grid.GetColumn(c) == 0 && Grid.GetRow(c) == 1 && c != _categoryToggleButton);
-            if (catPanel != null)
-            {
-                catPanel.IsVisible = !catPanel.IsVisible;
-            }
-        };
-
-        return btn;
-    }
-
     protected override void OnSizeAllocated(double width, double height)
     {
         base.OnSizeAllocated(width, height);
 
-        var newMode = width > 1200 ? LayoutMode.Expanded
-                      : width >= 900 ? LayoutMode.Standard
-                      : LayoutMode.Compact;
+        var newMode = width > 1200 ? LayoutMode.Expanded : LayoutMode.Standard;
 
         if (newMode != _layoutMode)
         {
@@ -1089,56 +1033,13 @@ public class MainPage : ContentPage
                 grid.ColumnDefinitions[0] = new ColumnDefinition(180);
                 grid.ColumnDefinitions[1] = new ColumnDefinition(320);
                 grid.ColumnDefinitions[2] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
-                SetCategoryPanelVisible(true);
-                SetDetailPanelVisible(true);
                 break;
 
             case LayoutMode.Standard:
                 grid.ColumnDefinitions[0] = new ColumnDefinition(150);
                 grid.ColumnDefinitions[1] = new ColumnDefinition(250);
                 grid.ColumnDefinitions[2] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
-                SetCategoryPanelVisible(true);
-                SetDetailPanelVisible(true);
                 break;
-
-            case LayoutMode.Compact:
-                // 发票列表在 Col 1，必须让 Col 1 占满，Col 0 和 Col 2 为 0
-                grid.ColumnDefinitions[0] = new ColumnDefinition(0);
-                grid.ColumnDefinitions[1] = new ColumnDefinition(new GridLength(1, GridUnitType.Star));
-                grid.ColumnDefinitions[2] = new ColumnDefinition(0);
-                SetCategoryPanelVisible(false);
-                SetDetailPanelVisible(false);
-                break;
-        }
-    }
-
-    private void SetCategoryPanelVisible(bool visible)
-    {
-        if (Content is not Grid grid) return;
-        foreach (var child in grid.Children)
-        {
-            if (child is View v && Grid.GetColumn(v) == 0 && Grid.GetRow(v) == 1 
-                && v != _categoryToggleButton 
-                && v != _importOverlay 
-                && v != _busyIndicator)
-            {
-                v.IsVisible = visible;
-            }
-        }
-        _categoryToggleButton.IsVisible = !visible;
-    }
-
-    private void SetDetailPanelVisible(bool visible)
-    {
-        if (Content is not Grid grid) return;
-        foreach (var child in grid.Children)
-        {
-            if (child is View v && Grid.GetColumn(v) == 2 && Grid.GetRow(v) == 1
-                && v != _importOverlay
-                && v != _busyIndicator)
-            {
-                v.IsVisible = visible;
-            }
         }
     }
 
@@ -1431,8 +1332,18 @@ public class MainPage : ContentPage
 
     private async void OnSaveClicked(object? sender, EventArgs e)
     {
+        if (_detailVm.CurrentInvoice == null)
+        {
+            await this.DisplayAlert("提示", "请先选择一张发票", "OK");
+            return;
+        }
+
         await _detailVm.SaveCommand.ExecuteAsync(null);
-        await this.DisplayAlert("保存成功", "发票已确认保存至本地数据库（SQLite）\n\n状态已标记为「已确认」，可在数据库表中查看 IsConfirmed 字段。", "OK");
+
+        // 刷新列表以更新确认标记
+        await _vm.LoadDataCommand.ExecuteAsync(null);
+
+        await this.DisplayAlert("保存成功", "发票已确认保存。\n\n状态已标记为「已确认」✅", "OK");
     }
 
     private async void OnDeleteClicked(object? sender, EventArgs e)
