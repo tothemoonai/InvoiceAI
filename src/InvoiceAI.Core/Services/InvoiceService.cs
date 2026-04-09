@@ -40,6 +40,20 @@ public class InvoiceService : IInvoiceService
             .OrderByDescending(i => i.TransactionDate)
             .ToListAsync();
 
+    public async Task<List<Invoice>> GetByCreateDateRangeAsync(DateTime start, DateTime end)
+        => await _dbContext.Invoices
+            .Where(i => i.IsConfirmed && i.CreatedAt >= start && i.CreatedAt <= end)
+            .OrderByDescending(i => i.CreatedAt)
+            .ToListAsync();
+
+    public List<string> GetDistinctCategories()
+        => _dbContext.Invoices
+            .Where(i => i.IsConfirmed)
+            .Select(i => i.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
+
     public async Task<Invoice?> GetByIdAsync(int id)
         => await _dbContext.Invoices.FindAsync(id);
 
