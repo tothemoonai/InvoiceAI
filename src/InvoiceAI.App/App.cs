@@ -39,8 +39,7 @@ public partial class App : Application
         try
         {
             var page = Handler.MauiContext.Services.GetRequiredService<Pages.MainPage>();
-            var navPage = new NavigationPage(page);
-            var window = new Window(navPage);
+            var window = new Window(page);
 
             return window;
         }

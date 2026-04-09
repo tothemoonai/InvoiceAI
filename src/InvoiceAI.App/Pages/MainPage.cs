@@ -46,7 +46,6 @@ public class MainPage : ContentPage
 
         BindingContext = viewModel;
 
-        Title = "InvoiceAI";
         BackgroundColor = ThemeManager.Background;
 
         BuildUI();
@@ -117,20 +116,12 @@ public class MainPage : ContentPage
             Padding = new Thickness(16, 8),
             Content = new HorizontalStackLayout
             {
-                Spacing = 12,
+                Spacing = 0,
                 Children =
                 {
                     new Label
                     {
-                        Text = "InvoiceAI",
-                        FontSize = 18,
-                        FontAttributes = FontAttributes.Bold,
-                        TextColor = Colors.White,
-                        VerticalOptions = LayoutOptions.Center
-                    },
-                    new Label
-                    {
-                        Text = "- 発票智能管理",
+                        Text = "InvoiceAI - 発票智能管理",
                         FontSize = 14,
                         TextColor = Color.FromArgb("#BBDEFB"),
                         VerticalOptions = LayoutOptions.Center
