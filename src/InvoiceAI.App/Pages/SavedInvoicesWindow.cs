@@ -235,7 +235,10 @@ public class SavedInvoicesWindow : ContentPage
         var catLbl = new Label { FontSize = 11, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center };
         catLbl.SetBinding(Label.TextProperty, nameof(SavedInvoiceRow.Category));
 
-        var inclLbl = new Label { FontSize = 12, TextColor = ThemeManager.BrandPrimary, VerticalOptions = LayoutOptions.Center, HorizontalOptions = LayoutOptions.End, FontAttributes = FontAttributes.Bold };
+        var exclLbl = new Label { FontSize = 12, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center, HorizontalOptions = LayoutOptions.End, LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
+        exclLbl.SetBinding(Label.TextProperty, nameof(SavedInvoiceRow.TaxExcludedAmount), stringFormat: "¥{0:N0}");
+
+        var inclLbl = new Label { FontSize = 12, TextColor = ThemeManager.BrandPrimary, VerticalOptions = LayoutOptions.Center, HorizontalOptions = LayoutOptions.End, FontAttributes = FontAttributes.Bold, LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
         inclLbl.SetBinding(Label.TextProperty, nameof(SavedInvoiceRow.TaxIncludedAmount), stringFormat: "¥{0:N0}");
 
         var typeLbl = new Label { FontSize = 11, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center };
@@ -262,7 +265,7 @@ public class SavedInvoicesWindow : ContentPage
                 Children =
                 {
                     dateLbl.Column(0), issuerLbl.Column(1), regLbl.Column(2), descLbl.Column(3),
-                    catLbl.Column(4), inclLbl.Column(5), typeLbl.Column(6), createdLbl.Column(7)
+                    catLbl.Column(4), exclLbl.Column(5), inclLbl.Column(6), typeLbl.Column(7), createdLbl.Column(8)
                 }
             }
         };
