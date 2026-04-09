@@ -224,7 +224,7 @@ public class MainPage : ContentPage
     {
         _invoiceList = new CollectionView
         {
-            SelectionMode = SelectionMode.Multiple,
+            SelectionMode = SelectionMode.Single,
             ItemsSource = _vm.Invoices,
             ItemTemplate = new DataTemplate(() =>
             {
@@ -310,7 +310,6 @@ public class MainPage : ContentPage
                     },
                     ColumnDefinitions =
                     {
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
                         new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
                         new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
                     },
@@ -318,13 +317,13 @@ public class MainPage : ContentPage
                     {
                         issuerLabel.Row(0).Column(0),
                         typeBadge.Row(0).Column(1),
-                        confirmedBadge.Row(0).Column(2),
                         new HorizontalStackLayout
                         {
                             Spacing = 0,
                             Children = { dateLabel, amountLabel }
                         }.Row(1).Column(0).ColumnSpan(2),
-                        catLabel.Row(2).Column(0).ColumnSpan(3)
+                        catLabel.Row(2).Column(0),
+                        confirmedBadge.Row(2).Column(1)
                     }
                 };
 
@@ -424,14 +423,21 @@ public class MainPage : ContentPage
             BackgroundColor = ThemeManager.Get("BackgroundTertiary", "DarkBackgroundTertiary"),
             StrokeShape = new RoundRectangle { CornerRadius = 0 },
             StrokeThickness = 0,
-            Content = new VerticalStackLayout
+            Content = new Grid
             {
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),   // search
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),   // filter
+                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),   // header
+                    new RowDefinition(new GridLength(1, GridUnitType.Star))    // invoice list (scrollable)
+                },
                 Children =
                 {
-                    searchBar,
-                    filterRow,
-                    savedHeader,
-                    _invoiceList
+                    searchBar.Row(0),
+                    filterRow.Row(1),
+                    savedHeader.Row(2),
+                    _invoiceList.Row(3)
                 }
             }
         };
