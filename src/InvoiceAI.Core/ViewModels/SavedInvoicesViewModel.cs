@@ -123,17 +123,31 @@ public partial class SavedInvoicesViewModel : ObservableObject
     {
         if (row == null) return;
 
-        await _invoiceService.DeleteAsync(row.Id);
-        _allRows.RemoveAll(r => r.Id == row.Id);
-        ApplyFilters();
-        StatusMessage = $"已删除: {row.IssuerName}";
+        try
+        {
+            await _invoiceService.DeleteAsync(row.Id);
+            _allRows.RemoveAll(r => r.Id == row.Id);
+            ApplyFilters();
+            StatusMessage = $"已删除: {row.IssuerName}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"删除失败: {ex.Message}";
+        }
     }
 
     [RelayCommand]
-    private async Task SaveInvoiceAsync(Invoice invoice)
+    private async Task UpdateInvoiceAsync(Invoice invoice)
     {
-        await _invoiceService.UpdateAsync(invoice);
-        await LoadDataAsync();
+        try
+        {
+            await _invoiceService.UpdateAsync(invoice);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"保存失败: {ex.Message}";
+        }
     }
 
     private static SavedInvoiceRow MapToRow(Invoice inv) => new()
