@@ -58,6 +58,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<InvoiceDetailViewModel>();
         builder.Services.AddSingleton<ImportViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<InvoiceAI.Core.ViewModels.SavedInvoicesViewModel>();
 
         // Pages (transient)
         builder.Services.AddTransient<Pages.MainPage>();
