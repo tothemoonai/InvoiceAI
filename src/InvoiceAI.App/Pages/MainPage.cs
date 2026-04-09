@@ -598,11 +598,11 @@ public class MainPage : ContentPage
         };
         missingBorder.SetBinding(IsVisibleProperty, nameof(_detailVm.MissingFieldsDisplay));
 
-        // Action buttons
+        // Action buttons (fixed at top, outside ScrollView)
         var actions = new HorizontalStackLayout
         {
             Spacing = 8,
-            Margin = new Thickness(0, 12, 0, 0),
+            Padding = new Thickness(16, 12, 16, 8),
             Children =
             {
                 BuildActionButton("✅ 确认", OnSaveClicked, ThemeManager.Success),
@@ -611,12 +611,12 @@ public class MainPage : ContentPage
         };
         actions.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
 
-        // Detail ScrollView (visible when invoice selected)
+        // Detail ScrollView (visible when invoice selected, scrollable content below fixed buttons)
         var detailWrapper = new ScrollView
         {
             Content = new VerticalStackLayout
             {
-                Padding = 16,
+                Padding = new Thickness(16, 0, 16, 16),
                 Spacing = 12,
                 Children =
                 {
@@ -625,12 +625,22 @@ public class MainPage : ContentPage
                     _detailContent,
                     itemsHeader,
                     itemsList,
-                    missingBorder,
-                    actions
+                    missingBorder
                 }
             }
         };
         detailWrapper.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
+
+        // Wrapper with fixed buttons at top and scrollable content below
+        var detailContainer = new VerticalStackLayout
+        {
+            Children =
+            {
+                actions,
+                detailWrapper
+            }
+        };
+        detailContainer.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
 
         // Empty state (visible when no invoice selected)
         var emptyState = new VerticalStackLayout
@@ -659,7 +669,7 @@ public class MainPage : ContentPage
             StrokeThickness = 0,
             Content = new Grid
             {
-                Children = { emptyState, detailWrapper }
+                Children = { emptyState, detailContainer }
             }
         };
     }
