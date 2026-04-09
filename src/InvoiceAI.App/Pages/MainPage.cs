@@ -201,6 +201,7 @@ public class MainPage : ContentPage
                         {
                             BuildActionButton("📥 导入", OnImportClicked, ThemeManager.BrandPrimary),
                             BuildActionButton("📤 导出", OnExportClicked, ThemeManager.Success),
+                            BuildActionButton("💾 已保存", OnSavedInvoicesClicked, Color.FromArgb("#5C6BC0")),
                             BuildActionButton("⚙ 设置", OnSettingsClicked, ThemeManager.TextSecondary)
                         }
                     }.Row(2)
@@ -275,22 +276,6 @@ public class MainPage : ContentPage
                 };
                 catLabel.SetBinding(Label.TextProperty, nameof(Invoice.Category));
 
-                // Confirmed badge
-                var confirmedBadge = new Border
-                {
-                    Padding = new Thickness(6, 2),
-                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
-                    StrokeThickness = 0,
-                    BackgroundColor = ThemeManager.Success,
-                    HorizontalOptions = LayoutOptions.End,
-                    Content = new Label
-                    {
-                        Text = "✅",
-                        FontSize = 10
-                    }
-                };
-                confirmedBadge.SetBinding(IsVisibleProperty, nameof(Invoice.IsConfirmed));
-
                 var content = new Grid
                 {
                     RowDefinitions =
@@ -313,8 +298,7 @@ public class MainPage : ContentPage
                             Spacing = 0,
                             Children = { dateLabel, amountLabel }
                         }.Row(1).Column(0).ColumnSpan(2),
-                        catLabel.Row(2).Column(0),
-                        confirmedBadge.Row(2).Column(1)
+                        catLabel.Row(2).Column(0)
                     }
                 };
 
@@ -375,17 +359,18 @@ public class MainPage : ContentPage
         searchBar.SetBinding(SearchBar.SearchCommandProperty, nameof(_vm.SearchCommand));
         searchBar.SetBinding(SearchBar.TextProperty, nameof(_vm.SearchText));
 
+        // Filter row (empty, confirmed switch removed)
         var filterRow = new HorizontalStackLayout
         {
             Spacing = 8,
             Padding = new Thickness(8, 4, 8, 0),
-            HorizontalOptions = LayoutOptions.End,
+            HorizontalOptions = LayoutOptions.End
         };
 
         // Saved invoices header
         var savedHeader = new Label
         {
-            Text = "📋 已保存记录",
+            Text = "📋 未导出发票",
             FontSize = 13,
             FontAttributes = FontAttributes.Bold,
             TextColor = ThemeManager.BrandPrimary,
@@ -579,7 +564,6 @@ public class MainPage : ContentPage
             Padding = new Thickness(16, 12, 16, 8),
             Children =
             {
-                BuildActionButton("✅ 确认", OnSaveClicked, ThemeManager.Success),
                 BuildActionButton("🗑 删除", OnDeleteClicked, ThemeManager.Error)
             }
         };
@@ -1320,22 +1304,20 @@ public class MainPage : ContentPage
         await Navigation.PushAsync(settingsPage);
     }
 
-    private async void OnSaveClicked(object? sender, EventArgs e)
+    private async void OnSavedInvoicesClicked(object? sender, EventArgs e)
     {
-        if (_detailVm.CurrentInvoice == null)
+        try
         {
-            await this.DisplayAlert("提示", "请先选择一张发票", "OK");
-            return;
+            var viewModel = _services.GetRequiredService<InvoiceAI.Core.ViewModels.SavedInvoicesViewModel>();
+            var invoiceService = _services.GetRequiredService<IInvoiceService>();
+            var settingsService = _services.GetRequiredService<IAppSettingsService>();
+            var savedPage = new SavedInvoicesWindow(viewModel, invoiceService, settingsService);
+            await Navigation.PushAsync(savedPage);
         }
-
-        // Save the invoice
-        _detailVm.CurrentInvoice.IsConfirmed = true;
-        await _vm.UpdateInvoiceCommand.ExecuteAsync(_detailVm.CurrentInvoice);
-
-        // 刷新列表以更新确认标记
-        await _vm.LoadDataCommand.ExecuteAsync(null);
-
-        await this.DisplayAlert("保存成功", "发票已确认保存。\n\n状态已标记为「已确认」✅", "OK");
+        catch (Exception ex)
+        {
+            await this.DisplayAlert("错误", $"打开已保存列表失败:\n{ex.Message}", "OK");
+        }
     }
 
     private async void OnDeleteClicked(object? sender, EventArgs e)
