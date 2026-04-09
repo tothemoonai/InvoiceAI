@@ -131,6 +131,7 @@ public partial class MainViewModel : ObservableObject
         DateTime? startDate = null;
         DateTime? endDate = null;
         bool skipConfirmed = false;
+        int confirmedFilter = 0;
 
         if (parameters is string path)
         {
@@ -140,9 +141,14 @@ public partial class MainViewModel : ObservableObject
         {
             (filePath, startDate, endDate) = tuple3;
         }
-        else if (parameters is ValueTuple<string, DateTime?, DateTime?, bool> tuple4)
+        else if (parameters is ValueTuple<string, DateTime?, DateTime?, int> tuple4)
         {
-            (filePath, startDate, endDate, skipConfirmed) = tuple4;
+            (filePath, startDate, endDate, var filterInt) = tuple4;
+            confirmedFilter = filterInt;
+        }
+        else if (parameters is ValueTuple<string, DateTime?, DateTime?, bool> tuple4b)
+        {
+            (filePath, startDate, endDate, skipConfirmed) = tuple4b;
         }
 
         if (string.IsNullOrEmpty(filePath)) return;
@@ -153,7 +159,22 @@ public partial class MainViewModel : ObservableObject
         {
             var invoices = Invoices.ToList();
             int skippedCount = 0;
-            if (skipConfirmed)
+            int confirmedFilterValue = confirmedFilter;
+            if (confirmedFilterValue == 1)
+            {
+                // Only confirmed
+                var beforeFilter = invoices.Count;
+                invoices = invoices.Where(i => i.IsConfirmed).ToList();
+                skippedCount = beforeFilter - invoices.Count;
+            }
+            else if (confirmedFilterValue == 2)
+            {
+                // Only unconfirmed
+                var beforeFilter = invoices.Count;
+                invoices = invoices.Where(i => !i.IsConfirmed).ToList();
+                skippedCount = beforeFilter - invoices.Count;
+            }
+            else if (skipConfirmed)
             {
                 var beforeFilter = invoices.Count;
                 invoices = invoices.Where(i => !i.IsConfirmed).ToList();
@@ -162,8 +183,8 @@ public partial class MainViewModel : ObservableObject
 
             await _excelExportService.ExportAsync(invoices, filePath, startDate, endDate);
             StatusMessage = $"已导出到 {filePath}";
-            if (skipConfirmed && skippedCount > 0)
-                StatusMessage = $"已导出到 {filePath}（跳过 {skippedCount} 张已确认发票）";
+            if (skippedCount > 0)
+                StatusMessage = $"已导出到 {filePath}（跳过 {skippedCount} 张）";
 
             // Auto-save after export if enabled
             if (_settingsService.Settings.AutoSaveAfterExport && invoices.Count > 0)
