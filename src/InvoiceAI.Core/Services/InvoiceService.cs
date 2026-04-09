@@ -46,13 +46,13 @@ public class InvoiceService : IInvoiceService
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
 
-    public List<string> GetDistinctCategories()
-        => _dbContext.Invoices
+    public async Task<List<string>> GetDistinctCategoriesAsync()
+        => await _dbContext.Invoices
             .Where(i => i.IsConfirmed)
             .Select(i => i.Category)
             .Distinct()
             .OrderBy(c => c)
-            .ToList();
+            .ToListAsync();
 
     public async Task<Invoice?> GetByIdAsync(int id)
         => await _dbContext.Invoices.FindAsync(id);
