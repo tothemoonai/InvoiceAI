@@ -1,4 +1,3 @@
-using System.Text.Json;
 using CommunityToolkit.Maui.Markup;
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
@@ -82,7 +81,11 @@ public class SavedInvoicesWindow : ContentPage
         };
         sortPicker.SelectedIndexChanged += (s, e) =>
         {
-            _vm.SortMode = sortPicker.SelectedIndex == 1 ? "CreatedAt" : "TransactionDate";
+            if (sortPicker.SelectedIndex >= 0)
+            {
+                _vm.SortMode = sortPicker.SelectedIndex == 1 ? "CreatedAt" : "TransactionDate";
+                _vm.ApplyFiltersCommand.Execute(null);
+            }
         };
 
         var refreshBtn = new Button { Text = "🔄 刷新", FontSize = 12, WidthRequest = 80, HeightRequest = 32 };

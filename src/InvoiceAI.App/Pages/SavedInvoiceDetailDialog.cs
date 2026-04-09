@@ -48,8 +48,13 @@ public class SavedInvoiceDetailDialog : ContentPage
 
     private async Task LoadInvoiceData()
     {
-        _invoice = await _invoiceService.GetByIdAsync(_invoiceId)
-            ?? throw new InvalidOperationException("发票不存在");
+        _invoice = await _invoiceService.GetByIdAsync(_invoiceId);
+        if (_invoice == null)
+        {
+            await DisplayAlert("错误", "发票不存在或已被删除", "OK");
+            await Navigation.PopModalAsync();
+            return;
+        }
 
         try
         {
