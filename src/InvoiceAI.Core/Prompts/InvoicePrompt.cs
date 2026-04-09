@@ -39,7 +39,14 @@ public static class InvoicePrompt
 
     public static string BuildUserMessage(string ocrText)
     {
-        return $"请分析以下日本发票 OCR 识别文本，提取结构化信息并判断适格状态：\n\n{ocrText}";
+        return $"""
+请分析以下日本发票 OCR 识别文本，提取结构化信息并判断适格状态。
+
+⚠️ 重要：此文本可能来自多页 PDF 文件，包含多张发票。请仔细识别每张发票的边界（通常每页包含一张发票），返回 JSON 数组，每张发票对应一个对象。如果只识别到一张发票，则返回包含单个元素的数组。
+
+OCR 文本：
+{ocrText}
+""";
     }
 
     public static string BuildBatchUserMessage(string[] ocrTexts)

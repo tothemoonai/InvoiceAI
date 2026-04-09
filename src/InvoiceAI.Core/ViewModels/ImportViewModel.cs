@@ -181,32 +181,61 @@ public partial class ImportViewModel : ObservableObject
                 promptTokens, completionTokens, totalTokens);
 
             // ── Map and save results ──────────────────────────────
+            int glmIdx = 0;
             for (int j = 0; j < ocrSuccessIndices.Count; j++)
             {
-                if (j >= glmResults.Count) break;
                 var idx = ocrSuccessIndices[j];
-                var glm = glmResults[j];
-                var (_, ocrText, hash) = ocrResults[idx];
+                
+                // Process all GLM results for this file (single file may contain multiple invoices)
+                int invoicesForThisFile = 0;
+                while (glmIdx < glmResults.Count)
+                {
+                    // For multi-invoice files, check if this GLM result belongs to current file
+                    // Heuristic: if we have more GLM results than files, distribute evenly
+                    int expectedPerFile = Math.Max(1, glmResults.Count / ocrSuccessIndices.Count);
+                    if (invoicesForThisFile >= expectedPerFile && glmResults.Count - glmIdx > ocrSuccessIndices.Count - j - 1)
+                        break;
 
-                var invoice = MapToInvoice(glm, ocrText, supported[idx], hash);
+                    var glm = glmResults[glmIdx];
+                    var (_, ocrText, hash) = ocrResults[idx];
+
+                    var invoice = MapToInvoice(glm, ocrText, supported[idx], hash);
+                    invoice = await _invoiceService.SaveAsync(invoice);
+                    Results.Add(invoice);
+
+                    // Archive the invoice file if path is configured
+                    var archivePath = _settingsService.Settings.InvoiceArchivePath;
+                    if (!string.IsNullOrWhiteSpace(archivePath))
+                    {
+                        var sourceFile = supported[idx];
+                        await _fileService.CopyToInvoiceArchiveAsync(
+                            sourceFile,
+                            archivePath,
+                            invoice.Category,
+                            invoice.IssuerName,
+                            invoice.TransactionDate);
+                    }
+
+                    var tokenInfo = glm.TotalTokens > 0 ? $" (tokens: {glm.TotalTokens})" : "";
+                    var invoiceNum = invoicesForThisFile > 0 ? $" #{invoicesForThisFile + 1}" : "";
+                    ImportItems[idx].Status = $"✅ 完成{invoiceNum}{tokenInfo}";
+
+                    glmIdx++;
+                    invoicesForThisFile++;
+                }
+            }
+
+            // Handle any remaining GLM results (edge case)
+            while (glmIdx < glmResults.Count)
+            {
+                var glm = glmResults[glmIdx];
+                var lastIdx = ocrSuccessIndices[^1];
+                var (_, ocrText, hash) = ocrResults[lastIdx];
+
+                var invoice = MapToInvoice(glm, ocrText, supported[lastIdx], hash);
                 invoice = await _invoiceService.SaveAsync(invoice);
                 Results.Add(invoice);
-
-                // Archive the invoice file if path is configured
-                var archivePath = _settingsService.Settings.InvoiceArchivePath;
-                if (!string.IsNullOrWhiteSpace(archivePath))
-                {
-                    var sourceFile = supported[idx];
-                    await _fileService.CopyToInvoiceArchiveAsync(
-                        sourceFile,
-                        archivePath,
-                        invoice.Category,
-                        invoice.IssuerName,
-                        invoice.TransactionDate);
-                }
-
-                var tokenInfo = glm.TotalTokens > 0 ? $" (tokens: {glm.TotalTokens})" : "";
-                ImportItems[idx].Status = $"✅ 完成{tokenInfo}";
+                glmIdx++;
             }
 
             UpdateProgress(n * 2 + 1, n * 2 + 1);

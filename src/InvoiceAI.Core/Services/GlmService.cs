@@ -86,15 +86,19 @@ public class GlmService : IGlmService
                 Path.Combine(LogDir, "glm_raw_response.json"),
                 json.GetRawText());
 
-            return ParseSingleResponse(json);
+            var results = ParseResponse(json);
+            // For single-file processing, return the first invoice (maintains backward compatibility)
+            // The full array is saved in glm_raw_response.json for debugging
+            return results.Count > 0 ? results[0] : new GlmInvoiceResponse { Description = "解析失败", InvoiceType = "NonQualified" };
         }
     }
 
     public async Task<List<GlmInvoiceResponse>> ProcessBatchAsync(string[] ocrTexts)
     {
         if (ocrTexts.Length == 0) return [];
-        if (ocrTexts.Length == 1) return [await ProcessInvoiceAsync(ocrTexts[0])];
 
+        // Always use batch processing path to properly handle multi-invoice responses
+        // (even for single files that may contain multiple invoices like multi-page PDFs)
         try
         {
             var batchResults = await ProcessBatchCoreAsync(ocrTexts);
@@ -109,7 +113,8 @@ public class GlmService : IGlmService
                 {
                     try
                     {
-                        batchResults.Add(await ProcessInvoiceAsync(ocrTexts[i]));
+                        var singleResults = await ProcessInvoiceAsyncInternal(ocrTexts[i]);
+                        batchResults.AddRange(singleResults);
                     }
                     catch (Exception ex)
                     {
@@ -132,7 +137,8 @@ public class GlmService : IGlmService
             {
                 try
                 {
-                    results.Add(await ProcessInvoiceAsync(ocrTexts[i]));
+                    var singleResults = await ProcessInvoiceAsyncInternal(ocrTexts[i]);
+                    results.AddRange(singleResults);
                     if (i < ocrTexts.Length - 1) await Task.Delay(1000);
                 }
                 catch (Exception itemEx)
@@ -142,6 +148,50 @@ public class GlmService : IGlmService
                 }
             }
             return results;
+        }
+    }
+
+    private async Task<List<GlmInvoiceResponse>> ProcessInvoiceAsyncInternal(string ocrText)
+    {
+        const int maxRetries = 3;
+        for (int attempt = 0; ; attempt++)
+        {
+            var settings = _settingsService.Settings.Glm;
+            var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
+            var provider = settings.Provider;
+
+            var requestBody = BuildRequestBody(
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, provider);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+            var jsonPayload = JsonSerializer.Serialize(requestBody);
+            request.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            var response = await _httpClient.SendAsync(request, cts.Token);
+
+            if ((int)response.StatusCode == 429 && attempt < maxRetries)
+            {
+                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt) * 2);
+                Directory.CreateDirectory(LogDir);
+                File.AppendAllText(Path.Combine(LogDir, "import_error.log"),
+                    $"[{DateTime.Now:HH:mm:ss}] 429 rate limited, retry {attempt + 1}/{maxRetries} after {delay.TotalSeconds}s\n");
+                await Task.Delay(delay, cts.Token);
+                continue;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            // Save raw GLM response for debugging
+            Directory.CreateDirectory(LogDir);
+            await File.WriteAllTextAsync(
+                Path.Combine(LogDir, "glm_raw_response.json"),
+                json.GetRawText());
+
+            return ParseResponse(json);
         }
     }
 
@@ -234,44 +284,70 @@ public class GlmService : IGlmService
         }
     }
 
-    private static GlmInvoiceResponse ParseSingleResponse(JsonElement json)
+    /// <summary>
+    /// Parse GLM response into a list of invoice responses.
+    /// Handles both single object and array responses.
+    /// </summary>
+    private static List<GlmInvoiceResponse> ParseResponse(JsonElement json)
     {
         var messageEl = json.GetProperty("choices")[0].GetProperty("message");
         var content = ExtractContent(messageEl);
 
         var jsonStr = ExtractJson(content);
-        GlmInvoiceResponse result;
-        if (jsonStr != null)
+        if (jsonStr == null)
         {
-            result = JsonSerializer.Deserialize<GlmInvoiceResponse>(jsonStr,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?? new GlmInvoiceResponse { Description = "解析失败", InvoiceType = "NonQualified" };
-        }
-        else
-        {
-            // Save failed content for diagnosis
             Directory.CreateDirectory(LogDir);
             File.WriteAllText(
                 Path.Combine(LogDir, "glm_parse_failed.txt"),
                 $"Content:\n{content}\n\nRaw:\n{json.GetRawText()}");
-
-            result = new GlmInvoiceResponse
-            {
-                Description = "LLM 返回格式异常",
-                InvoiceType = "NonQualified",
-                MissingFields = ["1", "2", "3", "4", "5", "6"]
-            };
+            return [new GlmInvoiceResponse { Description = "LLM 返回格式异常", InvoiceType = "NonQualified", MissingFields = ["1", "2", "3", "4", "5", "6"] }];
         }
+
+        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         // Extract token usage
+        int promptTokens = 0, completionTokens = 0, totalTokens = 0;
         if (json.TryGetProperty("usage", out var usage))
         {
-            result.PromptTokens = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
-            result.CompletionTokens = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
-            result.TotalTokens = usage.TryGetProperty("total_tokens", out var tt) ? tt.GetInt32() : 0;
+            promptTokens = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
+            completionTokens = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
+            totalTokens = usage.TryGetProperty("total_tokens", out var tt) ? tt.GetInt32() : 0;
         }
 
-        return result;
+        // Try to parse as array first (for multi-invoice support)
+        if (jsonStr.TrimStart().StartsWith('['))
+        {
+            var arr = JsonSerializer.Deserialize<List<GlmInvoiceResponse>>(jsonStr, opts);
+            if (arr != null && arr.Count > 0)
+            {
+                foreach (var item in arr)
+                {
+                    item.PromptTokens = promptTokens / arr.Count;
+                    item.CompletionTokens = completionTokens / arr.Count;
+                    item.TotalTokens = totalTokens / arr.Count;
+                }
+                return arr;
+            }
+        }
+
+        // Fallback: parse as single object
+        var single = JsonSerializer.Deserialize<GlmInvoiceResponse>(jsonStr, opts);
+        if (single != null)
+        {
+            single.PromptTokens = promptTokens;
+            single.CompletionTokens = completionTokens;
+            single.TotalTokens = totalTokens;
+            return [single];
+        }
+
+        return [new GlmInvoiceResponse { Description = "解析失败", InvoiceType = "NonQualified" }];
+    }
+
+    [Obsolete("Use ParseResponse instead")]
+    private static GlmInvoiceResponse ParseSingleResponse(JsonElement json)
+    {
+        var results = ParseResponse(json);
+        return results.Count > 0 ? results[0] : new GlmInvoiceResponse { Description = "解析失败", InvoiceType = "NonQualified" };
     }
 
     private static string ExtractContent(JsonElement messageEl)
@@ -290,7 +366,7 @@ public class GlmService : IGlmService
     }
 
     /// <summary>
-    /// Extracts the first valid JSON object from text, handling markdown code blocks and mixed content.
+    /// Extracts JSON from text, prioritizing arrays for multi-invoice support.
     /// </summary>
     private static string? ExtractJson(string text)
     {
@@ -319,22 +395,22 @@ public class GlmService : IGlmService
             }
         }
 
-        // Find outermost { ... } with brace matching
-        var jsonStart = text.IndexOf('{');
-        if (jsonStart < 0)
+        // Priority: find array [...] first (for multi-invoice support)
+        var arrayStart = text.IndexOf('[');
+        if (arrayStart >= 0)
         {
-            // Try array
-            jsonStart = text.IndexOf('[');
-            if (jsonStart < 0) return null;
             var depth = 0;
-            for (var i = jsonStart; i < text.Length; i++)
+            for (var i = arrayStart; i < text.Length; i++)
             {
                 if (text[i] == '[') depth++;
                 else if (text[i] == ']') depth--;
-                if (depth == 0) return text[jsonStart..(i + 1)];
+                if (depth == 0) return text[arrayStart..(i + 1)];
             }
-            return null;
         }
+
+        // Fallback: find single object { ... }
+        var jsonStart = text.IndexOf('{');
+        if (jsonStart < 0) return null;
 
         {
             var depth = 0;
