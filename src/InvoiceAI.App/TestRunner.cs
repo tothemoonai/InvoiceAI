@@ -63,9 +63,10 @@ public static class TestRunner
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
 
         // 数据库 (与主应用相同的路径)
-        var dbPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "InvoiceAI", "invoices.db");
+        var appDataDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var dbDir = Path.Combine(appDataDir, "InvoiceAI");
+        Directory.CreateDirectory(dbDir);
+        var dbPath = Path.Combine(dbDir, "invoices.db");
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite($"Data Source={dbPath}"));
 
