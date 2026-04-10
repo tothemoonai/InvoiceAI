@@ -7,9 +7,32 @@ namespace InvoiceAI.App;
 
 public static class TestRunner
 {
+    /// <summary>
+    /// 从 AppContext.BaseDirectory 向上搜索，找到包含 TEMP/testdata 和 TEMP/testlog 的项目根目录。
+    /// 只有同时存在这两个子目录才认为是真正的项目根目录。
+    /// </summary>
+    private static string FindProjectRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 15; i++)
+        {
+            var tempDir = Path.Combine(dir, "TEMP");
+            // 只有当 TEMP/testdata 存在时才认为是项目根目录
+            if (Directory.Exists(Path.Combine(tempDir, "testdata")) &&
+                Directory.Exists(Path.Combine(tempDir, "testlog")))
+                return dir;
+            var parent = Path.GetDirectoryName(dir);
+            if (string.IsNullOrEmpty(parent) || parent == dir) break;
+            dir = parent;
+        }
+        // fallback: 假设 6 级
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));
+    }
+
+    private static readonly string ProjectRoot = FindProjectRoot();
+
     // 测试日志输出目录: TEMP\testlog
-    private static readonly string TestLogDir = Path.Combine(
-        AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testlog");
+    private static readonly string TestLogDir = Path.Combine(ProjectRoot, "TEMP", "testlog");
 
     /// <summary>
     /// 主入口: 解析参数 → 构建 DI → 执行测试 → 退出

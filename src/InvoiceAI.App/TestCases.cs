@@ -6,9 +6,33 @@ namespace InvoiceAI.App;
 
 public static class TestCases
 {
-    // 测试日志/临时文件目录: TEMP\testlog
-    private static readonly string TestLogDir = Path.Combine(
-        AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testlog");
+    /// <summary>
+    /// 从 AppContext.BaseDirectory 向上搜索，找到包含 TEMP/testdata 和 TEMP/testlog 的项目根目录。
+    /// 只有同时存在这两个子目录才认为是真正的项目根目录。
+    /// </summary>
+    private static string FindProjectRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 15; i++)
+        {
+            var tempDir = Path.Combine(dir, "TEMP");
+            if (Directory.Exists(Path.Combine(tempDir, "testdata")) &&
+                Directory.Exists(Path.Combine(tempDir, "testlog")))
+                return dir;
+            var parent = Path.GetDirectoryName(dir);
+            if (string.IsNullOrEmpty(parent) || parent == dir) break;
+            dir = parent;
+        }
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));
+    }
+
+    private static readonly string ProjectRoot = FindProjectRoot();
+
+    // 测试数据目录: TEMP\testdata（发票图片/PDF）
+    private static readonly string TestDataDir = Path.Combine(ProjectRoot, "TEMP", "testdata");
+
+    // 测试日志目录: TEMP\testlog（测试输出和临时文件）
+    private static readonly string TestLogDir = Path.Combine(ProjectRoot, "TEMP", "testlog");
 
     // ─── 1. Load: 数据加载 ─────────────────────────────
 
@@ -129,14 +153,13 @@ public static class TestCases
         await db.Database.EnsureCreatedAsync();
 
         // 查找 TEMP\testdata 目录下的测试用发票图片
-        var testDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testdata");
         string? testImage = null;
-        if (Directory.Exists(testDir))
+        if (Directory.Exists(TestDataDir))
         {
-            testImage = Directory.GetFiles(testDir, "*.jpg")
-                .Concat(Directory.GetFiles(testDir, "*.png"))
-                .Concat(Directory.GetFiles(testDir, "*.jpeg"))
-                .Concat(Directory.GetFiles(testDir, "*.pdf"))
+            testImage = Directory.GetFiles(TestDataDir, "*.jpg")
+                .Concat(Directory.GetFiles(TestDataDir, "*.png"))
+                .Concat(Directory.GetFiles(TestDataDir, "*.jpeg"))
+                .Concat(Directory.GetFiles(TestDataDir, "*.pdf"))
                 .FirstOrDefault();
         }
 
@@ -144,9 +167,9 @@ public static class TestCases
         {
             return new TestCaseResult(
                 "import",
-                "查找 TEMP\\testdata 目录下的测试图片",
+                $"查找 {TestDataDir} 目录下的测试图片",
                 "找到测试图片",
-                "未找到可用的测试发票图片 (TEMP\\testdata 目录下无 jpg/png/pdf)",
+                $"未找到可用的测试发票图片 ({TestDataDir} 目录下无 jpg/png/pdf)",
                 null,
                 true, // SKIP
                 "无测试图片，跳过导入测试"
