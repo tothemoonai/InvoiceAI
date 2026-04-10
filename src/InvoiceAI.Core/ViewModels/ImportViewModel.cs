@@ -60,46 +60,85 @@ public partial class ImportViewModel : ObservableObject
 
         try
         {
-            // ── Phase 1: Compress images ──────────────────────────
-            var preparedPaths = new List<string>();
+            // ── Phase 0: Convert PDF to images ────────────────────
+            var pdfConvertedPaths = new List<string>(); // 存储转换后的图片路径
+            var pdfConversionMap = new Dictionary<int, List<int>>(); // 原始文件索引 → 转换后的图片索引列表
+            
             for (int i = 0; i < n; i++)
             {
                 if (!IsProcessing) return;
-                UpdateProgress(i, n * 2 + 1);
-                StatusMessage = $"压缩图片 ({i + 1}/{n})...";
-                ImportItems[i].Status = "压缩中...";
+                StatusMessage = $"检查文件类型 ({i + 1}/{n})...";
+                
+                var ext = Path.GetExtension(supported[i]);
+                if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    ImportItems[i].Status = "📄 PDF转换中...";
+                    try
+                    {
+                        var images = await _fileService.ConvertPdfToImagesAsync(supported[i]);
+                        var startIdx = pdfConvertedPaths.Count;
+                        foreach (var img in images)
+                        {
+                            pdfConvertedPaths.Add(img);
+                        }
+                        pdfConversionMap[i] = Enumerable.Range(startIdx, images.Count).ToList();
+                        ImportItems[i].Status = $"PDF转换完成 ✓ ({images.Count} 页)";
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[PDF] 转换失败: {ex.Message}");
+                        // 转换失败时使用原始 PDF 路径
+                        pdfConvertedPaths.Add(supported[i]);
+                        pdfConversionMap[i] = new List<int> { pdfConvertedPaths.Count - 1 };
+                        ImportItems[i].Status = "PDF转换失败，使用原文件";
+                    }
+                }
+                else
+                {
+                    pdfConvertedPaths.Add(supported[i]);
+                    pdfConversionMap[i] = new List<int> { pdfConvertedPaths.Count - 1 };
+                }
+            }
+            
+            // 更新文件列表为转换后的图片路径
+            var effectiveFiles = pdfConvertedPaths.ToList();
+            var effectiveCount = effectiveFiles.Count;
+
+            // ── Phase 1: Compress images ──────────────────────────
+            var preparedPaths = new List<string>();
+            for (int i = 0; i < effectiveCount; i++)
+            {
+                if (!IsProcessing) return;
+                UpdateProgress(i, effectiveCount * 2 + 1);
+                StatusMessage = $"压缩图片 ({i + 1}/{effectiveCount})...";
 
                 try
                 {
-                    var prepared = await _fileService.PrepareForOcrAsync(supported[i]);
+                    var prepared = await _fileService.PrepareForOcrAsync(effectiveFiles[i]);
                     preparedPaths.Add(prepared);
-                    ImportItems[i].Status = "压缩完成 ✓";
                 }
                 catch (Exception ex)
                 {
-                    preparedPaths.Add(supported[i]); // fallback to original
-                    ImportItems[i].Status = $"压缩失败，使用原图";
-                    LogError(supported[i], ex);
+                    preparedPaths.Add(effectiveFiles[i]); // fallback to original
+                    LogError(effectiveFiles[i], ex);
                 }
             }
 
             // ── Phase 2: OCR each image ───────────────────────────
-            var ocrResults = new (string Path, string Text, string Hash)[n];
+            var ocrResults = new (string Path, string Text, string Hash)[effectiveCount];
             var ocrSuccessIndices = new List<int>();
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < effectiveCount; i++)
             {
                 if (!IsProcessing) return;
-                UpdateProgress(n + i, n * 2 + 1);
-                StatusMessage = $"OCR识别 ({i + 1}/{n}): {ImportItems[i].FileName}";
-                ImportItems[i].Status = "🔍 OCR识别中...";
+                UpdateProgress(effectiveCount + i, effectiveCount * 2 + 1);
+                StatusMessage = $"OCR识别 ({i + 1}/{effectiveCount}): {Path.GetFileName(effectiveFiles[i])}";
 
                 try
                 {
-                    var hash = await _fileService.ComputeFileHashAsync(supported[i]);
+                    var hash = await _fileService.ComputeFileHashAsync(effectiveFiles[i]);
                     if (await _invoiceService.ExistsByHashAsync(hash))
                     {
-                        ImportItems[i].Status = "⚠ 已存在（跳过）";
-                        ocrResults[i] = (supported[i], "", hash);
+                        ocrResults[i] = (effectiveFiles[i], "", hash);
                         continue;
                     }
 
@@ -107,7 +146,7 @@ public partial class ImportViewModel : ObservableObject
                     var ocrText = await _ocrService.RecognizeAsync(preparedPaths[i]);
                     ocrSw.Stop();
 
-                    ocrResults[i] = (supported[i], ocrText, hash);
+                    ocrResults[i] = (effectiveFiles[i], ocrText, hash);
                     ocrSuccessIndices.Add(i);
                     ImportItems[i].Status = $"OCR完成 ({ocrSw.ElapsedMilliseconds}ms) ✓";
                     LogTiming($"OCR {ImportItems[i].FileName}", ocrSw.ElapsedMilliseconds);
