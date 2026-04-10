@@ -1,6 +1,7 @@
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Data;
+using InvoiceAI.App.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace InvoiceAI.App;
@@ -59,7 +60,12 @@ public partial class App : Application
         try
         {
             var page = Handler.MauiContext.Services.GetRequiredService<Pages.MainPage>();
-            var window = new Window(page);
+            var navPage = new NavigationPage(page)
+            {
+                BarBackgroundColor = ThemeManager.BrandPrimary,
+                BarTextColor = Colors.White
+            };
+            var window = new Window(navPage);
 
             return window;
         }
