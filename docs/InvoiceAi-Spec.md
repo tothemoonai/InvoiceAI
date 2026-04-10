@@ -2,12 +2,14 @@
 
 > 日期: 2026-04-05 (初版) | 2026-04-07 (修订 v2) | 2026-04-08 (修订 v3) | 2026-04-09 (修订 v4) | 2026-04-09 (修订 v6)
 > 状态: 已实现并验证
->
+> 
 > **变更记录 (2026-04-09 v6)**:
+> 
 > - **已保存发票列表管理**: 新增独立窗口（SavedInvoicesWindow）以表格形式展示已确认发票，支持分类/日期筛选、编辑详情、删除。主界面中间栏默认显示未导出发票，移除"确认"按钮、"仅显示已确认"开关、"✅"徽章
 > - **命令行测试模式**: 新增 `--test`/`-t` 参数进入无头测试模式，支持 `--case=X` 指定单个测试、`--all` 运行全部。8 个测试用例覆盖 load/category/search/import/export/delete/saved/edit。标准格式输出结果到控制台，退出码 0=通过，非0=失败
->
+> 
 > **变更记录 (2026-04-09 v4)**:
+> 
 > - 统一配色系统：紫罗兰色 `#6C5CE7` 作为品牌主色，语义化颜色键替换硬编码颜色
 > - 暗色主题支持：设置页面添加"主题设置"区块（跟随系统/浅色/暗色），保存到 appsettings.json 的 ThemeMode 字段
 > - 字体样式定义：添加标题、金额、正文、状态等 11 个字体样式
@@ -17,8 +19,9 @@
 > - 确认按钮修复：恢复 3 列 Grid 布局，保存后刷新列表更新确认标记 ✅
 > - 导出功能修复：添加 `ValueTuple<string, DateTime?, DateTime?, int>` 类型匹配，支持三种导出模式
 > - 金额显示修复：设置 `LineBreakMode.NoWrap` + `MaxLines=1` 防止金额竖向显示
->
+> 
 > **变更记录 (2026-04-09 v5 - 新增)**:
+> 
 > - **单文件多发票支持**:
 >   - 优化 OCR 提示词，明确告知 LLM 单文件（多页 PDF）可能包含多张发票
 >   - 修改 `GlmService` 解析逻辑，优先识别 JSON 数组格式，支持返回多张发票
@@ -32,8 +35,9 @@
 > - **详情面板优化**:
 >   - 将「确认」和「删除」按钮固定在详情面板顶部（ScrollView 外部）
 >   - 用户滚动查看长内容时，按钮始终可见，无需滚回顶部即可操作
->
+> 
 > **变更记录 (2026-04-07 v2)**:
+> 
 > - 新增 Cerebras 作为第三 LLM 提供商 (Qwen-3-235B, max_tokens=32768)
 > - 设置页 LLM 配置改为: 提供商选择 → 模型下拉菜单 (Picker) → API Key (密码模式)，移除端点地址手动输入
 > - NVIDIA 默认模型改为 `deepseek-ai/deepseek-v3.1-terminus`
@@ -41,8 +45,9 @@
 > - 新增 Token 消耗统计 (prompt/completion/total)，在导入结果和 timing.log 中展示
 > - 429 限流自动重试 (指数退避: 2s→4s→8s)
 > - 日志目录集中管理至项目 `TEMP/errorlog/`（LogHelper 自动定位项目根目录）
->
+> 
 > **变更记录 (2026-04-08 v3)**:
+> 
 > - 新增导出设置：Excel 导出路径配置（文件夹选择器）、导出后自动保存确认开关
 > - 新增发票归档设置：发票文件保存路径配置（导入后文件压缩/重命名的归档目录）
 > - 分类管理 UI 重构：从纵向列表改为 3 列网格布局 (GridItemsLayout)，紧凑芯片样式
@@ -54,6 +59,7 @@ Windows 桌面优先的日本发票识别工具，基于 .NET MAUI 构建。
 **核心功能**: 导入图片/PDF → PaddleOCR 提取 Markdown 文本 → GLM-4.7 智能整理（严格遵循适格請求書规则）→ SQLite 本地存储 → 分类查询 + Excel 导出。
 
 > **Spec 变更记录 (2026-04-07)**:
+> 
 > - OCR 从百度 OCR (ApiKey+SecretKey) 迁移到 PaddleOCR-VL-1.5 (Token+Endpoint)
 > - GLM 模型确定为 glm-4.7（推理模型），`max_tokens=100000`
 > - Excel 库从 EPPlus 替换为 MiniExcel（无许可证问题）
@@ -73,16 +79,16 @@ Windows 桌面优先的日本发票识别工具，基于 .NET MAUI 构建。
 
 ## 2. 技术栈
 
-| 组件 | 技术 |
-|---|---|
-| 框架 | .NET MAUI 9 (net9.0-windows10.0.19041.0) |
-| UI | C# Markup (CommunityToolkit.Maui.Markup) |
-| 架构 | MVVM + CommunityToolkit.Mvvm |
-| OCR | PaddleOCR-VL-1.5（Token 认证，返回 Markdown，支持图片和 PDF） |
-| AI | GLM-4.7 多提供商: 智谱 (bigmodel.cn) + NVIDIA NIM + Cerebras |
-| 数据库 | EF Core + SQLite (Code First) |
-| Excel | MiniExcel |
-| 双语 | .resx 资源文件（中文默认 + 日语） |
+| 组件    | 技术                                                     |
+| ----- | ------------------------------------------------------ |
+| 框架    | .NET MAUI 9 (net9.0-windows10.0.19041.0)               |
+| UI    | C# Markup (CommunityToolkit.Maui.Markup)               |
+| 架构    | MVVM + CommunityToolkit.Mvvm                           |
+| OCR   | PaddleOCR-VL-1.5（Token 认证，返回 Markdown，支持图片和 PDF）       |
+| AI    | GLM-4.7 多提供商: 智谱 (bigmodel.cn) + NVIDIA NIM + Cerebras |
+| 数据库   | EF Core + SQLite (Code First)                          |
+| Excel | MiniExcel                                              |
+| 双语    | .resx 资源文件（中文默认 + 日语）                                  |
 
 **关于 PDF 库的说明**: PaddleOCR 可直接处理 PDF 文件（`fileType: 0`），因此不需要额外的 PDF 渲染库。
 
@@ -90,13 +96,13 @@ Windows 桌面优先的日本发票识别工具，基于 .NET MAUI 构建。
 
 ### NuGet 包清单
 
-| 包名 | 用途 |
-|---|---|
-| CommunityToolkit.Maui | MAUI 工具包 |
-| CommunityToolkit.Maui.Markup | C# Markup 支持 |
-| CommunityToolkit.Mvvm | MVVM 源生成器 ([ObservableProperty], [RelayCommand]) |
-| Microsoft.EntityFrameworkCore.Sqlite | SQLite ORM |
-| MiniExcel | Excel 导出（替代 EPPlus，无许可证问题） |
+| 包名                                   | 用途                                               |
+| ------------------------------------ | ------------------------------------------------ |
+| CommunityToolkit.Maui                | MAUI 工具包                                         |
+| CommunityToolkit.Maui.Markup         | C# Markup 支持                                     |
+| CommunityToolkit.Mvvm                | MVVM 源生成器 ([ObservableProperty], [RelayCommand]) |
+| Microsoft.EntityFrameworkCore.Sqlite | SQLite ORM                                       |
+| MiniExcel                            | Excel 导出（替代 EPPlus，无许可证问题）                       |
 
 ## 3. 架构方案：分层架构
 
@@ -120,28 +126,28 @@ InvoiceAI/
 
 ### Invoice 表
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| Id | int PK | 自增主键 |
-| IssuerName | string | 発行事業者名 |
-| RegistrationNumber | string | 登録番号 (T + 13桁) |
-| TransactionDate | DateTime? | 取引年月日 |
-| Description | string | 取引内容摘要 |
-| ItemsJson | string | 明细行 JSON |
-| TaxExcludedAmount | decimal? | 税抜金額 |
-| TaxIncludedAmount | decimal? | 税込金額 |
-| TaxAmount | decimal? | 消費税額 |
-| RecipientName | string? | 交付を受ける事業者名 |
-| InvoiceType | enum | Standard / Simplified / NonQualified |
-| MissingFields | string? | 缺失项 (JSON 数组) |
-| Category | string | 用户分类 |
-| SourceFilePath | string? | 原始文件路径 |
-| FileHash | string? | 文件 SHA256 哈希（用于重复检测） |
-| OcrRawText | string? | OCR 原始文本 |
-| GlmRawResponse | string? | GLM 原始返回 |
-| IsConfirmed | bool | 是否已确认保存 |
-| CreatedAt | DateTime | 创建时间 |
-| UpdatedAt | DateTime | 更新时间 |
+| 字段                 | 类型        | 说明                                   |
+| ------------------ | --------- | ------------------------------------ |
+| Id                 | int PK    | 自增主键                                 |
+| IssuerName         | string    | 発行事業者名                               |
+| RegistrationNumber | string    | 登録番号 (T + 13桁)                       |
+| TransactionDate    | DateTime? | 取引年月日                                |
+| Description        | string    | 取引内容摘要                               |
+| ItemsJson          | string    | 明细行 JSON                             |
+| TaxExcludedAmount  | decimal?  | 税抜金額                                 |
+| TaxIncludedAmount  | decimal?  | 税込金額                                 |
+| TaxAmount          | decimal?  | 消費税額                                 |
+| RecipientName      | string?   | 交付を受ける事業者名                           |
+| InvoiceType        | enum      | Standard / Simplified / NonQualified |
+| MissingFields      | string?   | 缺失项 (JSON 数组)                        |
+| Category           | string    | 用户分类                                 |
+| SourceFilePath     | string?   | 原始文件路径                               |
+| FileHash           | string?   | 文件 SHA256 哈希（用于重复检测）                 |
+| OcrRawText         | string?   | OCR 原始文本                             |
+| GlmRawResponse     | string?   | GLM 原始返回                             |
+| IsConfirmed        | bool      | 是否已确认保存                              |
+| CreatedAt          | DateTime  | 创建时间                                 |
+| UpdatedAt          | DateTime  | 更新时间                                 |
 
 ### ItemsJson 结构
 
@@ -160,13 +166,13 @@ InvoiceAI/
 
 ### 服务接口
 
-| 服务 | 职责 |
-|---|---|
-| IBaiduOcrService | 调用 PaddleOCR API，返回 Markdown 识别文本（支持图片和 PDF） |
-| IGlmService | 发送 OCR 文本 + Prompt → GLM-4.7 推理 → 返回结构化 JSON + Token 统计（支持智谱/NVIDIA/Cerebras 三提供商，429 限流自动重试） |
-| IInvoiceService | 发票 CRUD、查询、分类 |
-| IExcelExportService | 按分类/时间范围导出 Excel |
-| IFileService | 文件路径处理、格式过滤、哈希计算 |
+| 服务                  | 职责                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| IBaiduOcrService    | 调用 PaddleOCR API，返回 Markdown 识别文本（支持图片和 PDF）                                                  |
+| IGlmService         | 发送 OCR 文本 + Prompt → GLM-4.7 推理 → 返回结构化 JSON + Token 统计（支持智谱/NVIDIA/Cerebras 三提供商，429 限流自动重试） |
+| IInvoiceService     | 发票 CRUD、查询、分类                                                                                 |
+| IExcelExportService | 按分类/时间范围导出 Excel                                                                              |
+| IFileService        | 文件路径处理、格式过滤、哈希计算                                                                              |
 
 ### 核心工作流
 
@@ -215,11 +221,11 @@ GLM 判断 invoiceType (Standard/Simplified/NonQualified) 并列出 missingField
 
 ### 多提供商配置
 
-| 提供商 | 默认模型 | max_tokens | 特殊参数 |
-|---|---|---|---|
-| 智谱 (zhipu) | glm-4.7 | 100000 | `temperature: 1.0`, `thinking: { type: "disabled" }` |
-| NVIDIA NIM | deepseek-ai/deepseek-v3.1-terminus | 32768 | `temperature: 0.1` |
-| Cerebras | qwen-3-235b-a22b-instruct-2507 | 32768 | `temperature: 0.1` |
+| 提供商        | 默认模型                               | max_tokens | 特殊参数                                                 |
+| ---------- | ---------------------------------- | ---------- | ---------------------------------------------------- |
+| 智谱 (zhipu) | glm-4.7                            | 100000     | `temperature: 1.0`, `thinking: { type: "disabled" }` |
+| NVIDIA NIM | deepseek-ai/deepseek-v3.1-terminus | 32768      | `temperature: 0.1`                                   |
+| Cerebras   | qwen-3-235b-a22b-instruct-2507     | 32768      | `temperature: 0.1`                                   |
 
 提供商切换时自动保存旧提供商配置、加载新提供商配置、更新模型下拉列表。
 
@@ -260,13 +266,13 @@ GLM 判断 invoiceType (Standard/Simplified/NonQualified) 并列出 missingField
 
 ### 页面与 ViewModel 对应
 
-| 组件 | ViewModel | 职责 |
-|---|---|---|
-| CategoryList (左栏) | MainViewModel | 分类列表、数量统计、导入触发 |
-| InvoiceList (中栏) | MainViewModel | 发票列表、分组、选中高亮 |
-| InvoiceDetail (右栏) | InvoiceDetailViewModel | 详情展示、适格状态、编辑/保存 |
-| ImportOverlay (弹窗) | ImportViewModel | 文件选择 → OCR → GLM → 预览 |
-| SettingsDialog (弹窗) | SettingsViewModel | API 密钥、语言、分类管理 |
+| 组件                  | ViewModel              | 职责                    |
+| ------------------- | ---------------------- | --------------------- |
+| CategoryList (左栏)   | MainViewModel          | 分类列表、数量统计、导入触发        |
+| InvoiceList (中栏)    | MainViewModel          | 发票列表、分组、选中高亮          |
+| InvoiceDetail (右栏)  | InvoiceDetailViewModel | 详情展示、适格状态、编辑/保存       |
+| ImportOverlay (弹窗)  | ImportViewModel        | 文件选择 → OCR → GLM → 预览 |
+| SettingsDialog (弹窗) | SettingsViewModel      | API 密钥、语言、分类管理        |
 
 ### 导入流程
 
@@ -325,6 +331,7 @@ API 密钥不存储在代码仓库中。
 ## 8. 双语支持
 
 使用 .resx 资源文件:
+
 - `Strings.resx` → 中文 (默认)
 - `Strings.ja.resx` → 日语
 
@@ -332,20 +339,21 @@ API 密钥不存储在代码仓库中。
 
 ## 9. 错误处理
 
-| 场景 | 处理方式 |
-|---|---|
-| API 密钥未配置 | 首次启动引导到设置页，顶部提示横幅 |
-| OCR 识别失败 | 显示错误，允许重试。错误详情写入 TEMP/errorlog/import_error.log |
+| 场景         | 处理方式                                                                                |
+| ---------- | ----------------------------------------------------------------------------------- |
+| API 密钥未配置  | 首次启动引导到设置页，顶部提示横幅                                                                   |
+| OCR 识别失败   | 显示错误，允许重试。错误详情写入 TEMP/errorlog/import_error.log                                     |
 | GLM 返回格式异常 | ExtractJson() 尝试从 reasoning_content/content 提取 JSON，失败则记录原始响应到 glm_parse_failed.txt |
-| 网络超时 | 重试 2 次，仍失败提示检查网络 |
-| 429 限流 | 指数退避重试 (2s→4s→8s)，最多 3 次，日志记录重试过程 |
-| 不支持的文件格式 | 导入时过滤，仅允许 jpg/png/pdf |
-| 重复导入 | 根据 FileHash (SHA256) 检测，提示是否覆盖 |
-| 数据库迁移失败 | 启动时检查，提示修复或重建 |
+| 网络超时       | 重试 2 次，仍失败提示检查网络                                                                    |
+| 429 限流     | 指数退避重试 (2s→4s→8s)，最多 3 次，日志记录重试过程                                                   |
+| 不支持的文件格式   | 导入时过滤，仅允许 jpg/png/pdf                                                               |
+| 重复导入       | 根据 FileHash (SHA256) 检测，提示是否覆盖                                                      |
+| 数据库迁移失败    | 启动时检查，提示修复或重建                                                                       |
 
 ## 10. DI 注册
 
 MauiProgram.cs 关键注册:
+
 - HttpClient → 单例 (Timeout = 5 分钟)
 - IBaiduOcrService → BaiduOcrService (PaddleOCR)
 - IGlmService → GlmService (多提供商, max_tokens=100000/32768, 429 重试, Token 统计)
@@ -386,22 +394,22 @@ MauiProgram.cs 关键注册:
 
 ### 11.3 新增文件
 
-| 文件 | 职责 |
-|------|------|
+| 文件                                                        | 职责                |
+| --------------------------------------------------------- | ----------------- |
 | `src/InvoiceAI.Core/ViewModels/SavedInvoicesViewModel.cs` | 已保存列表窗口 ViewModel |
-| `src/InvoiceAI.App/Pages/SavedInvoicesWindow.cs` | 已保存列表窗口 UI |
-| `src/InvoiceAI.App/Pages/SavedInvoiceDetailDialog.cs` | 发票详情编辑对话框 UI |
+| `src/InvoiceAI.App/Pages/SavedInvoicesWindow.cs`          | 已保存列表窗口 UI        |
+| `src/InvoiceAI.App/Pages/SavedInvoiceDetailDialog.cs`     | 发票详情编辑对话框 UI      |
 
 ### 11.4 修改文件
 
-| 文件 | 修改内容 |
-|------|----------|
-| `src/InvoiceAI.App/Pages/MainPage.cs` | 增加"已保存列表"按钮；移除"确认"按钮 UI；移除"仅显示已确认"开关；移除列表中的"✅"徽章；中间栏默认显示未导出发票 |
-| `src/InvoiceAI.Core/ViewModels/MainViewModel.cs` | 增加 `OpenSavedInvoicesCommand`；移除 `ShowConfirmedOnly` 属性 |
-| `src/InvoiceAI.Core/ViewModels/InvoiceDetailViewModel.cs` | 移除 `SaveAsync`（确认）命令 |
-| `src/InvoiceAI.Core/Services/IInvoiceService.cs` | 增加 `GetByCreateDateRangeAsync` 和 `GetDistinctCategoriesAsync` 方法 |
-| `src/InvoiceAI.Core/Services/InvoiceService.cs` | 实现上述两个新方法 |
-| `src/InvoiceAI.App/MauiProgram.cs` | 注册 `SavedInvoicesViewModel` |
+| 文件                                                        | 修改内容                                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `src/InvoiceAI.App/Pages/MainPage.cs`                     | 增加"已保存列表"按钮；移除"确认"按钮 UI；移除"仅显示已确认"开关；移除列表中的"✅"徽章；中间栏默认显示未导出发票    |
+| `src/InvoiceAI.Core/ViewModels/MainViewModel.cs`          | 增加 `OpenSavedInvoicesCommand`；移除 `ShowConfirmedOnly` 属性          |
+| `src/InvoiceAI.Core/ViewModels/InvoiceDetailViewModel.cs` | 移除 `SaveAsync`（确认）命令                                             |
+| `src/InvoiceAI.Core/Services/IInvoiceService.cs`          | 增加 `GetByCreateDateRangeAsync` 和 `GetDistinctCategoriesAsync` 方法 |
+| `src/InvoiceAI.Core/Services/InvoiceService.cs`           | 实现上述两个新方法                                                        |
+| `src/InvoiceAI.App/MauiProgram.cs`                        | 注册 `SavedInvoicesViewModel`                                      |
 
 ### 11.5 数据流
 
@@ -463,13 +471,13 @@ public class SavedInvoiceRow
 
 ### 11.8 移除的功能
 
-| 移除项 | 位置 | 替代方案 |
-|--------|------|----------|
-| "✅ 确认"按钮 | 详情面板顶部 | 用户直接在详情中编辑后点"保存" |
-| "仅显示已确认"开关 | 发票列表上方 | 已导出发票自动不在主列表显示 |
-| "✅"确认标记徽章 | 发票列表每项 | 不需要，主列表只显示未导出 |
-| `ShowConfirmedOnly` 属性 | MainViewModel | — |
-| `SaveAsync` 命令 | InvoiceDetailViewModel | — |
+| 移除项                    | 位置                     | 替代方案             |
+| ---------------------- | ---------------------- | ---------------- |
+| "✅ 确认"按钮               | 详情面板顶部                 | 用户直接在详情中编辑后点"保存" |
+| "仅显示已确认"开关             | 发票列表上方                 | 已导出发票自动不在主列表显示   |
+| "✅"确认标记徽章              | 发票列表每项                 | 不需要，主列表只显示未导出    |
+| `ShowConfirmedOnly` 属性 | MainViewModel          | —                |
+| `SaveAsync` 命令         | InvoiceDetailViewModel | —                |
 
 ---
 
@@ -481,16 +489,16 @@ public class SavedInvoiceRow
 
 ### 12.2 测试覆盖的功能
 
-| # | 功能 | --case 值 |
-|---|------|-----------|
-| 1 | 数据加载 | `load` |
-| 2 | 分类管理 | `category` |
-| 3 | 发票搜索 | `search` |
-| 4 | 发票导入 | `import` |
-| 5 | 发票导出 | `export` |
-| 6 | 发票删除 | `delete` |
-| 7 | 已保存列表 | `saved` |
-| 8 | 编辑保存 | `edit` |
+| #   | 功能    | --case 值   |
+| --- | ----- | ---------- |
+| 1   | 数据加载  | `load`     |
+| 2   | 分类管理  | `category` |
+| 3   | 发票搜索  | `search`   |
+| 4   | 发票导入  | `import`   |
+| 5   | 发票导出  | `export`   |
+| 6   | 发票删除  | `delete`   |
+| 7   | 已保存列表 | `saved`    |
+| 8   | 编辑保存  | `edit`     |
 
 ### 12.3 无头执行流程
 
@@ -517,6 +525,7 @@ TestRunner.Run(caseName)
 ### 12.4 服务依赖层次
 
 **测试模式注册**:
+
 ```
 必需服务: AppDbContext, IAppSettingsService, IFileService,
           IInvoiceService, IExcelExportService, IBaiduOcrService,
@@ -526,6 +535,7 @@ TestRunner.Run(caseName)
 ```
 
 **测试数据管理**:
+
 - 使用主数据库: 测试直接在 `invoices.db` 主数据库上执行
 - 测试输入: 使用 `invoices/` 目录下的真实发票图片
 - 数据保护: 破坏性测试（delete/edit）先创建专用测试数据再删除，确保不留痕迹
@@ -544,23 +554,23 @@ TestRunner.Run(caseName)
 
 ### 12.6 测试用例详细设计
 
-| 测试 | 输入 | 预期 | 说明 |
-|------|------|------|------|
-| **load** | 查询未确认发票 | 返回 IsConfirmed=false 的列表 | 验证默认过滤 |
-| **category** | 获取分类计数 | 返回非空字典 | 验证分类功能 |
-| **search** | 用第一个发票发行方名搜索 | 返回匹配结果 | 数据库为空时 SKIP |
-| **import** | invoices/ 目录下的一张图片 | OCR→AI→保存→删除清理 | OCR/AI 不可用时 SKIP |
-| **export** | 导出所有发票到临时 Excel | 文件存在且大小 > 0 | 验证 MiniExcel |
-| **delete** | 创建测试发票后删除 | GetByIdAsync 返回 null | 验证 CRUD |
-| **saved** | 查询已确认发票 | 返回 IsConfirmed=true 的列表 | 验证时间范围查询 |
-| **edit** | 修改发票字段后保存重读 | 字段值正确更新 | 验证 UpdateAsync |
+| 测试           | 输入                 | 预期                       | 说明               |
+| ------------ | ------------------ | ------------------------ | ---------------- |
+| **load**     | 查询未确认发票            | 返回 IsConfirmed=false 的列表 | 验证默认过滤           |
+| **category** | 获取分类计数             | 返回非空字典                   | 验证分类功能           |
+| **search**   | 用第一个发票发行方名搜索       | 返回匹配结果                   | 数据库为空时 SKIP      |
+| **import**   | invoices/ 目录下的一张图片 | OCR→AI→保存→删除清理           | OCR/AI 不可用时 SKIP |
+| **export**   | 导出所有发票到临时 Excel    | 文件存在且大小 > 0              | 验证 MiniExcel     |
+| **delete**   | 创建测试发票后删除          | GetByIdAsync 返回 null     | 验证 CRUD          |
+| **saved**    | 查询已确认发票            | 返回 IsConfirmed=true 的列表  | 验证时间范围查询         |
+| **edit**     | 修改发票字段后保存重读        | 字段值正确更新                  | 验证 UpdateAsync   |
 
 ### 12.7 错误处理
 
-| 场景 | 处理方式 |
-|------|----------|
-| 无效 --case 值 | 列出可用 case，退出码=1 |
-| 数据库初始化失败 | 输出错误，退出码=1 |
-| 单个测试异常 | 捕获异常，标记 FAIL，继续执行后续 |
-| 外部服务不可用 (OCR/AI) | 标记 SKIP（非失败），说明原因 |
-| 测试数据清理失败 | 输出警告，不阻塞退出 |
+| 场景               | 处理方式                |
+| ---------------- | ------------------- |
+| 无效 --case 值      | 列出可用 case，退出码=1     |
+| 数据库初始化失败         | 输出错误，退出码=1          |
+| 单个测试异常           | 捕获异常，标记 FAIL，继续执行后续 |
+| 外部服务不可用 (OCR/AI) | 标记 SKIP（非失败），说明原因   |
+| 测试数据清理失败         | 输出警告，不阻塞退出          |

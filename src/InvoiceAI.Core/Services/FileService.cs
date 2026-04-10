@@ -79,10 +79,11 @@ public class FileService : IFileService
             var pdfDir = Path.Combine(archiveBasePath, "PDF", pdfFileName);
             Directory.CreateDirectory(pdfDir);
 
-            // 使用同步方法获取所有页面
-            var bitmaps = PDFtoImage.Conversion.ToImages(pdfFilePath);
-            var bitmapsList = bitmaps.ToList();
-            var pageCount = bitmapsList.Count;
+            // 读取 PDF 为字节数组
+            var pdfBytes = await File.ReadAllBytesAsync(pdfFilePath);
+
+            // 获取页数
+            var pageCount = PDFtoImage.Conversion.GetPageCount(pdfBytes);
 
             for (int i = 0; i < pageCount; i++)
             {
@@ -91,42 +92,46 @@ public class FileService : IFileService
                     : $"page_{i + 1}.jpg";
                 var outputPath = Path.Combine(pdfDir, pageFileName);
 
-                var bitmap = bitmapsList[i];
-                using var image = SkiaSharpToImageSharp(bitmap);
-
-                // 压缩到合适尺寸
-                if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
-                {
-                    image.Mutate(x => x.Resize(new ResizeOptions
-                    {
-                        Size = new Size(MaxImageDimension, MaxImageDimension),
-                        Mode = ResizeMode.Max
-                    }));
-                }
-
-                await image.SaveAsJpegAsync(outputPath, new JpegEncoder { Quality = 90 });
+                // 使用 Byte[] 重载将 PDF 页面保存为图片
+                PDFtoImage.Conversion.SaveJpeg(outputPath, pdfBytes, page: i);
+                
                 images.Add(outputPath);
-                bitmap.Dispose();
+            }
+
+            // 压缩图片到合适尺寸 (OCR 服务通常处理 2000px 以内的图片)
+            for (int i = 0; i < images.Count; i++)
+            {
+                try
+                {
+                    using var image = await Image.LoadAsync(images[i]);
+                    if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
+                    {
+                        image.Mutate(x => x.Resize(new ResizeOptions
+                        {
+                            Size = new Size(MaxImageDimension, MaxImageDimension),
+                            Mode = ResizeMode.Max
+                        }));
+                        await image.SaveAsJpegAsync(images[i], new JpegEncoder { Quality = 85 });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[PDF] 压缩图片失败 {images[i]}: {ex.Message}");
+                }
             }
         }
         catch (Exception ex)
         {
+            var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "InvoiceAI");
+            Directory.CreateDirectory(logDir);
+            var logFile = Path.Combine(logDir, "pdf_convert_error.log");
+            File.AppendAllText(logFile, $"{DateTime.Now:O}\nInput: {pdfFilePath}\nArchive: {archiveBasePath}\nError: {ex.GetType().Name}: {ex.Message}\nStack: {ex.StackTrace}\n\n");
+            
             System.Diagnostics.Debug.WriteLine($"[PDF] 转换失败: {ex.Message}");
-            // 转换失败时返回原始文件路径
             return new[] { pdfFilePath };
         }
 
         return images.Count > 0 ? images : new[] { pdfFilePath };
-    }
-
-    /// <summary>
-    /// 将 SkiaSharp.SKBitmap 转换为 SixLabors.ImageSharp.Image
-    /// </summary>
-    private static SixLabors.ImageSharp.Image SkiaSharpToImageSharp(SkiaSharp.SKBitmap bitmap)
-    {
-        var pixels = bitmap.GetPixelSpan();
-        return SixLabors.ImageSharp.Image.LoadPixelData<SixLabors.ImageSharp.PixelFormats.Rgba32>(
-            pixels, bitmap.Width, bitmap.Height);
     }
 
     public async Task<string?> CopyToInvoiceArchiveAsync(string sourceFilePath, string archiveBasePath, string category, string issuerName, DateTime? transactionDate)

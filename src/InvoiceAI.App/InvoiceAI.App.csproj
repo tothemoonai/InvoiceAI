@@ -71,7 +71,7 @@
 	  <ProjectReference Include="..\InvoiceAI.Models\InvoiceAI.Models.csproj" />
 	</ItemGroup>
 
-	<!-- appsettings.json 不自动复制到输出目录，避免覆盖用户配置 -->
-	<!-- 首次运行或需要重置配置时，手动从 AppData\Local\InvoiceAI\appsettings.json 复制 -->
+	<!-- appsettings.json 不再复制到输出目录，配置文件存储在 %APPDATA%\InvoiceAI\ -->
+	<!-- 首次运行时自动创建，dotnet clean 不影响用户配置 -->
 
 </Project>
