@@ -405,7 +405,83 @@ public static class TestCases
         );
     }
 
-    // ─── 7. Saved: 已保存列表 ─────────────────────────
+    // ─── 7. ImagePath: 发票图片路径查找 ─────────────────
+
+    public static async Task<TestCaseResult> TestImagePath(IServiceProvider services)
+    {
+        var invoiceService = services.GetRequiredService<IInvoiceService>();
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var invoices = await invoiceService.GetAllAsync();
+        if (invoices.Count == 0)
+        {
+            return new TestCaseResult(
+                "imagepath",
+                "数据库中无发票记录",
+                "跳过测试（无数据）",
+                "数据库为空，跳过图片路径测试",
+                null,
+                true,
+                "数据库为空，跳过"
+            );
+        }
+
+        // 查找第一张有 SourceFilePath 的发票
+        var invoiceWithPath = invoices.FirstOrDefault(i => !string.IsNullOrEmpty(i.SourceFilePath));
+        if (invoiceWithPath == null)
+        {
+            return new TestCaseResult(
+                "imagepath",
+                "查找有 SourceFilePath 的发票",
+                "找到至少一张有 SourceFilePath 的发票",
+                "所有发票的 SourceFilePath 均为空",
+                null,
+                true,
+                "无 SourceFilePath 的发票，跳过"
+            );
+        }
+
+        // 查找 TEMP\testdata 目录
+        var testRoot = FindProjectRoot();
+        var testdataDir = Path.Combine(testRoot, "TEMP", "testdata");
+        var imagesInTestdata = Directory.Exists(testdataDir)
+            ? Directory.GetFiles(testdataDir).Where(f => IsImageFile(f)).ToList()
+            : new List<string>();
+
+        // 验证 SourceFilePath 是否指向有效文件
+        bool sourceExists = File.Exists(invoiceWithPath.SourceFilePath);
+        
+        // 验证 testdata 目录是否有图片
+        bool testdataHasImages = imagesInTestdata.Count > 0;
+
+        var detail = $"发票 SourceFilePath: {invoiceWithPath.SourceFilePath}\n" +
+                     $"  文件存在: {sourceExists}\n" +
+                     $"  testdata 目录图片数: {imagesInTestdata.Count}";
+
+        // PASS 条件: SourceFilePath 文件存在 或 testdata 目录有图片可作为 fallback
+        bool passed = sourceExists || testdataHasImages;
+
+        return new TestCaseResult(
+            "imagepath",
+            $"查找发票图片路径 (发行方: {invoiceWithPath.IssuerName})",
+            "SourceFilePath 指向的文件存在，或 TEMP\\testdata 有图片可用作 fallback",
+            detail,
+            null,
+            passed,
+            passed ? null : "SourceFilePath 文件不存在且 TEMP\\testdata 无图片"
+        );
+    }
+
+    private static bool IsImageFile(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp";
+    }
+
+    // ─── 8. Saved: 已保存列表 ─────────────────────────
 
     public static async Task<TestCaseResult> TestSaved(IServiceProvider services)
     {

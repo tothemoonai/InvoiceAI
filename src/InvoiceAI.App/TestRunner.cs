@@ -146,7 +146,7 @@ public static class TestRunner
     /// </summary>
     private static async Task<int> RunAllAsync(IServiceProvider services)
     {
-        var cases = new[] { "load", "category", "search", "import", "export", "delete", "saved", "edit" };
+        var cases = new[] { "load", "category", "search", "import", "export", "delete", "imagepath", "saved", "edit" };
         int passCount = 0;
         int failCount = 0;
 
@@ -181,11 +181,12 @@ public static class TestRunner
                 "import" => await TestCases.TestImport(services),
                 "export" => await TestCases.TestExport(services),
                 "delete" => await TestCases.TestDelete(services),
+                "imagepath" => await TestCases.TestImagePath(services),
                 "saved" => await TestCases.TestSaved(services),
                 "edit" => await TestCases.TestEdit(services),
                 _ => new TestCaseResult(
                     caseName, "N/A", "有效的测试用例", "N/A", null, false,
-                    $"未知的测试用例: {caseName}。可用: load, category, search, import, export, delete, saved, edit")
+                    $"未知的测试用例: {caseName}。可用: load, category, search, import, export, delete, imagepath, saved, edit")
             };
 
             PrintResult(result);
