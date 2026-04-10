@@ -752,20 +752,28 @@ public class MainPage : ContentPage
     private void LoadInvoiceImagePreview(Invoice invoice)
     {
         var imagePath = FindInvoiceImagePath(invoice);
+        System.Diagnostics.Debug.WriteLine($"[IMG] FindInvoiceImagePath returned: {imagePath ?? "null"}");
+        if (imagePath != null)
+            System.Diagnostics.Debug.WriteLine($"[IMG] File.Exists: {File.Exists(imagePath)}");
+        
         if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"[IMG] Setting image source: {imagePath}");
                 _invoicePreviewImage.Source = ImageSource.FromFile(imagePath);
                 _invoicePreviewImage.IsVisible = true;
+                System.Diagnostics.Debug.WriteLine($"[IMG] IsVisible set to true");
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[IMG] Exception: {ex.Message}");
                 _invoicePreviewImage.IsVisible = false;
             }
         }
         else
         {
+            System.Diagnostics.Debug.WriteLine($"[IMG] No valid image path found");
             _invoicePreviewImage.IsVisible = false;
         }
     }
@@ -793,35 +801,7 @@ public class MainPage : ContentPage
             }
         }
 
-        // 3. Check TEMP/testdata directory (where test/import source files are stored)
-        var projectRoot = FindProjectRootForImagePath();
-        if (!string.IsNullOrEmpty(projectRoot))
-        {
-            var testdataDir = IOPath.Combine(projectRoot, "TEMP", "testdata");
-            if (Directory.Exists(testdataDir))
-            {
-                // Search by invoice.IssuerName or original filename
-                var matches = Directory.GetFiles(testdataDir, "*.*")
-                    .Where(f => IsImageFile(f))
-                    .ToList();
-                if (matches.Count > 0)
-                {
-                    // If SourceFilePath has a filename, try to match it
-                    if (!string.IsNullOrEmpty(invoice.SourceFilePath))
-                    {
-                        var sourceFileName = IOPath.GetFileName(invoice.SourceFilePath);
-                        var exactMatch = matches.FirstOrDefault(f =>
-                            IOPath.GetFileName(f).Equals(sourceFileName, StringComparison.OrdinalIgnoreCase));
-                        if (exactMatch != null)
-                            return exactMatch;
-                    }
-                    // Fallback: return first image in testdata
-                    return matches[0];
-                }
-            }
-        }
-
-        // 4. Check TEMP OCR directory
+        // 3. Check TEMP OCR directory
         if (!string.IsNullOrEmpty(invoice.SourceFilePath))
         {
             var tempOcrDir = IOPath.Combine(System.IO.Path.GetTempPath(), "InvoiceAI", "ocr");
@@ -834,24 +814,6 @@ public class MainPage : ContentPage
             }
         }
 
-        return null;
-    }
-
-    /// <summary>
-    /// Find the project root directory by walking up from the current directory.
-    /// Looks for a directory that contains "TEMP" subdirectory.
-    /// </summary>
-    private static string? FindProjectRootForImagePath()
-    {
-        var dir = AppContext.BaseDirectory;
-        for (int i = 0; i < 15; i++)
-        {
-            if (Directory.Exists(IOPath.Combine(dir, "TEMP")))
-                return dir;
-            var parent = IOPath.GetDirectoryName(dir);
-            if (string.IsNullOrEmpty(parent) || parent == dir) break;
-            dir = parent;
-        }
         return null;
     }
 

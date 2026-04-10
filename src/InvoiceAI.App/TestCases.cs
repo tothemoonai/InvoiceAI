@@ -429,49 +429,33 @@ public static class TestCases
             );
         }
 
-        // 查找第一张有 SourceFilePath 的发票
-        var invoiceWithPath = invoices.FirstOrDefault(i => !string.IsNullOrEmpty(i.SourceFilePath));
-        if (invoiceWithPath == null)
+        // 检查所有发票的 SourceFilePath
+        var details = new System.Text.StringBuilder();
+        int validCount = 0;
+        int invalidCount = 0;
+
+        foreach (var inv in invoices.Take(10))
         {
-            return new TestCaseResult(
-                "imagepath",
-                "查找有 SourceFilePath 的发票",
-                "找到至少一张有 SourceFilePath 的发票",
-                "所有发票的 SourceFilePath 均为空",
-                null,
-                true,
-                "无 SourceFilePath 的发票，跳过"
-            );
+            var hasPath = !string.IsNullOrEmpty(inv.SourceFilePath);
+            var fileExists = hasPath && File.Exists(inv.SourceFilePath);
+            if (fileExists) validCount++;
+            else if (hasPath) invalidCount++;
+
+            details.AppendLine($"  [{inv.Id}] {inv.IssuerName}");
+            details.AppendLine($"    SourceFilePath: {inv.SourceFilePath ?? "(null)"}");
+            details.AppendLine($"    文件存在: {fileExists}");
         }
 
-        // 查找 TEMP\testdata 目录
-        var testRoot = FindProjectRoot();
-        var testdataDir = Path.Combine(testRoot, "TEMP", "testdata");
-        var imagesInTestdata = Directory.Exists(testdataDir)
-            ? Directory.GetFiles(testdataDir).Where(f => IsImageFile(f)).ToList()
-            : new List<string>();
-
-        // 验证 SourceFilePath 是否指向有效文件
-        bool sourceExists = File.Exists(invoiceWithPath.SourceFilePath);
-        
-        // 验证 testdata 目录是否有图片
-        bool testdataHasImages = imagesInTestdata.Count > 0;
-
-        var detail = $"发票 SourceFilePath: {invoiceWithPath.SourceFilePath}\n" +
-                     $"  文件存在: {sourceExists}\n" +
-                     $"  testdata 目录图片数: {imagesInTestdata.Count}";
-
-        // PASS 条件: SourceFilePath 文件存在 或 testdata 目录有图片可作为 fallback
-        bool passed = sourceExists || testdataHasImages;
+        bool passed = validCount > 0;
 
         return new TestCaseResult(
             "imagepath",
-            $"查找发票图片路径 (发行方: {invoiceWithPath.IssuerName})",
-            "SourceFilePath 指向的文件存在，或 TEMP\\testdata 有图片可用作 fallback",
-            detail,
+            $"检查 {invoices.Count} 条发票的 SourceFilePath (显示前 {Math.Min(10, invoices.Count)} 条)",
+            "至少有一条发票的 SourceFilePath 指向存在的文件",
+            $"有效: {validCount}, 无效: {invalidCount}\n{details}",
             null,
             passed,
-            passed ? null : "SourceFilePath 文件不存在且 TEMP\\testdata 无图片"
+            passed ? null : "所有发票的 SourceFilePath 均无效"
         );
     }
 
