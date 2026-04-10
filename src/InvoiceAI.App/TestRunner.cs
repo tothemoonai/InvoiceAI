@@ -146,7 +146,7 @@ public static class TestRunner
     /// </summary>
     private static async Task<int> RunAllAsync(IServiceProvider services)
     {
-        var cases = new[] { "load", "category", "search", "import", "export", "delete", "imagepath", "saved", "edit" };
+        var cases = new[] { "load", "category", "search", "import", "export", "delete", "imagepath", "pdfconvert", "pdfimport", "saved", "edit" };
         int passCount = 0;
         int failCount = 0;
 
@@ -182,6 +182,8 @@ public static class TestRunner
                 "export" => await TestCases.TestExport(services),
                 "delete" => await TestCases.TestDelete(services),
                 "imagepath" => await TestCases.TestImagePath(services),
+                "pdfconvert" => await TestCases.TestPdfConvert(services),
+                "pdfimport" => await TestCases.TestPdfImport(services),
                 "saved" => await TestCases.TestSaved(services),
                 "edit" => await TestCases.TestEdit(services),
                 _ => new TestCaseResult(

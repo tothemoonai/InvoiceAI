@@ -465,7 +465,162 @@ public static class TestCases
         return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp";
     }
 
-    // ─── 8. Saved: 已保存列表 ─────────────────────────
+    // ─── 8. PdfConvert: PDF转图片测试 ─────────────────
+
+    public static async Task<TestCaseResult> TestPdfConvert(IServiceProvider services)
+    {
+        var fileService = services.GetRequiredService<IFileService>();
+        var settingsService = services.GetRequiredService<IAppSettingsService>();
+        
+        // 确保设置已加载
+        await settingsService.LoadAsync();
+        
+        var archivePath = settingsService.Settings.InvoiceArchivePath;
+        if (string.IsNullOrWhiteSpace(archivePath))
+        {
+            return new TestCaseResult(
+                "pdfconvert",
+                "PDF转图片测试",
+                "归档路径已配置，PDF文件转换为图片成功",
+                "归档路径未配置，请在设置中配置\"发票文件保存路径\"",
+                null,
+                true, // SKIP
+                "归档路径未配置，跳过"
+            );
+        }
+
+        // 查找测试 PDF 文件
+        var testRoot = FindProjectRoot();
+        var testdataDir = Path.Combine(testRoot, "TEMP", "testdata");
+        string? testPdf = null;
+        if (Directory.Exists(testdataDir))
+        {
+            testPdf = Directory.GetFiles(testdataDir, "*.pdf").FirstOrDefault();
+        }
+
+        if (string.IsNullOrEmpty(testPdf) || !File.Exists(testPdf))
+        {
+            return new TestCaseResult(
+                "pdfconvert",
+                "PDF转图片测试",
+                "找到测试 PDF 文件并转换成功",
+                $"未找到测试 PDF 文件 ({testdataDir})",
+                null,
+                true, // SKIP
+                "无测试 PDF 文件，跳过"
+            );
+        }
+
+        try
+        {
+            var images = await fileService.ConvertPdfToImagesAsync(testPdf, archivePath);
+            var allExist = images.All(File.Exists);
+            var detail = $"PDF: {Path.GetFileName(testPdf)}\n" +
+                        $"  转换后图片数: {images.Count}\n" +
+                        $"  图片路径: {string.Join(", ", images.Select(Path.GetFileName))}\n" +
+                        $"  所有图片存在: {allExist}\n" +
+                        $"  保存目录: {Path.GetDirectoryName(images[0])}";
+
+            return new TestCaseResult(
+                "pdfconvert",
+                $"PDF转图片: {Path.GetFileName(testPdf)} (归档路径: {archivePath})",
+                "PDF 成功转换为图片，所有图片文件存在",
+                detail,
+                null,
+                allExist,
+                allExist ? null : "部分图片文件不存在"
+            );
+        }
+        catch (Exception ex)
+        {
+            return new TestCaseResult(
+                "pdfconvert",
+                $"PDF转图片: {Path.GetFileName(testPdf)}",
+                "PDF 成功转换为图片",
+                $"异常: {ex.GetType().Name}: {ex.Message}",
+                null,
+                true, // SKIP
+                $"转换异常: {ex.Message}"
+            );
+        }
+    }
+
+    // ─── X. PdfImport: PDF导入识别全流程 ────────────────
+
+    public static async Task<TestCaseResult> TestPdfImport(IServiceProvider services)
+    {
+        var ocrService = services.GetRequiredService<IBaiduOcrService>();
+        var glmService = services.GetRequiredService<IGlmService>();
+        var invoiceService = services.GetRequiredService<IInvoiceService>();
+        var fileService = services.GetRequiredService<IFileService>();
+        var settingsService = services.GetRequiredService<IAppSettingsService>();
+
+        await settingsService.LoadAsync();
+        var archivePath = settingsService.Settings.InvoiceArchivePath;
+        if (string.IsNullOrWhiteSpace(archivePath))
+            return new TestCaseResult("pdfimport", "PDF导入", "归档路径未配置", null, null, true, "归档路径未配置，跳过");
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var testDir = TestDataDir;
+        var testPdf = Directory.Exists(testDir) ? Directory.GetFiles(testDir, "*.pdf").FirstOrDefault() : null;
+        if (string.IsNullOrEmpty(testPdf) || !File.Exists(testPdf))
+            return new TestCaseResult("pdfimport", "PDF导入", "未找到测试 PDF", null, null, true, "无测试 PDF");
+
+        try
+        {
+            var images = await fileService.ConvertPdfToImagesAsync(testPdf, archivePath);
+            var detail = $"PDF: {Path.GetFileName(testPdf)}\n  转换图片: {images.Count} 张\n";
+            
+            int savedCount = 0;
+            var savedIds = new List<int>();
+            foreach (var img in images)
+            {
+                var hash = await fileService.ComputeFileHashAsync(img);
+                if (await invoiceService.ExistsByHashAsync(hash)) { detail += $"  跳过重复: {Path.GetFileName(img)}\n"; continue; }
+                
+                var ocr = await ocrService.RecognizeAsync(img);
+                if (string.IsNullOrEmpty(ocr)) { detail += $"  OCR 返回空\n"; continue; }
+
+                var glm = await glmService.ProcessBatchAsync(new[] { ocr });
+                if (glm.Count == 0) { detail += $"  AI 返回空\n"; continue; }
+                
+                var glmResp = glm[0];
+                var invoice = new Invoice
+                {
+                    IssuerName = glmResp.IssuerName ?? "测试PDF导入",
+                    RegistrationNumber = glmResp.RegistrationNumber ?? "",
+                    TransactionDate = !string.IsNullOrEmpty(glmResp.TransactionDate) && DateTime.TryParse(glmResp.TransactionDate, out var d) ? d : null,
+                    Description = glmResp.Description ?? "",
+                    ItemsJson = System.Text.Json.JsonSerializer.Serialize(glmResp.Items?.Select(i => new InvoiceItem { Name = i.Name, Amount = i.Amount, TaxRate = i.TaxRate, IsReducedRate = i.IsReducedRate }).ToList() ?? new List<InvoiceItem>()),
+                    TaxExcludedAmount = glmResp.TaxExcludedAmount,
+                    TaxIncludedAmount = glmResp.TaxIncludedAmount,
+                    TaxAmount = glmResp.TaxAmount,
+                    InvoiceType = glmResp.InvoiceType switch { "Standard" => InvoiceType.Standard, "Simplified" => InvoiceType.Simplified, _ => InvoiceType.NonQualified },
+                    Category = glmResp.SuggestedCategory ?? "测试",
+                    SourceFilePath = img,
+                    FileHash = hash,
+                    IsConfirmed = false
+                };
+                invoice = await invoiceService.SaveAsync(invoice);
+                savedIds.Add(invoice.Id);
+                savedCount++;
+                detail += $"  保存成功: {invoice.IssuerName}\n";
+            }
+            
+            foreach (var id in savedIds) await invoiceService.DeleteAsync(id);
+                
+            return new TestCaseResult("pdfimport", $"PDF导入: {Path.GetFileName(testPdf)}", $"转换 {images.Count} 张，保存 {savedCount} 张发票", detail.Trim(), null, savedCount > 0, savedCount > 0 ? null : "未保存任何发票");
+        }
+        catch (Exception ex)
+        {
+            return new TestCaseResult("pdfimport", $"PDF导入: {Path.GetFileName(testPdf)}", "成功导入", $"异常: {ex.GetType().Name}: {ex.Message}", null, true, ex.Message);
+        }
+    }
+
+    // ─── 9. Saved: 已保存列表 ─────────────────────────
 
     public static async Task<TestCaseResult> TestSaved(IServiceProvider services)
     {

@@ -5,8 +5,10 @@ namespace InvoiceAI.Core.Services;
 
 public class AppSettingsService : IAppSettingsService
 {
+    // 配置文件放在用户 AppData 目录下，不受编译/清理影响
     private static readonly string SettingsPath = Path.Combine(
-        AppContext.BaseDirectory, "appsettings.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "InvoiceAI", "appsettings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

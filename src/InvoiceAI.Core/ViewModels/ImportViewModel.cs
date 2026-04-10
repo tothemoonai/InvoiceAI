@@ -45,6 +45,13 @@ public partial class ImportViewModel : ObservableObject
         var supported = _fileService.FilterSupportedFiles(filePaths);
         if (supported.Count == 0) return;
 
+        System.Diagnostics.Debug.WriteLine($"[Import] Files:");
+        for (int i = 0; i < supported.Count; i++)
+        {
+            var ext = Path.GetExtension(supported[i]);
+            System.Diagnostics.Debug.WriteLine($"  [{i}] {supported[i]} ext='{ext}' isPdf={ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase)}");
+        }
+
         // Limit to MaxFiles
         if (supported.Count > MaxFiles)
             supported = supported.Take(MaxFiles).ToList();
@@ -62,17 +69,20 @@ public partial class ImportViewModel : ObservableObject
         {
             // ── Phase 0: Convert PDF to images ────────────────────
             var pdfArchivePath = _settingsService.Settings.InvoiceArchivePath;
-            var pdfConvertedPaths = new List<string>(); // 存储转换后的图片路径
-            var pdfConversionMap = new Dictionary<int, List<int>>(); // 原始文件索引 → 转换后的图片索引列表
+            var pdfConvertedPaths = new List<string>();
+            var pdfConversionMap = new Dictionary<int, List<int>>();
 
             for (int i = 0; i < n; i++)
             {
                 if (!IsProcessing) return;
-                StatusMessage = $"检查文件类型 ({i + 1}/{n})...";
+                UpdateProgress(i, n * 2 + 1);
 
                 var ext = Path.GetExtension(supported[i]);
+                System.Diagnostics.Debug.WriteLine($"[Import] Phase 0, file {i}: {supported[i]}, ext: {ext}");
                 if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[Import] File {i} is PDF, starting conversion");
+                    StatusMessage = $"PDF转换 ({i + 1}/{n}): {ImportItems[i].FileName}...";
                     ImportItems[i].Status = "📄 PDF转换中...";
                     try
                     {
@@ -88,7 +98,6 @@ public partial class ImportViewModel : ObservableObject
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"[PDF] 转换失败: {ex.Message}");
-                        // 转换失败时使用原始 PDF 路径
                         pdfConvertedPaths.Add(supported[i]);
                         pdfConversionMap[i] = new List<int> { pdfConvertedPaths.Count - 1 };
                         ImportItems[i].Status = "PDF转换失败，使用原文件";
@@ -155,8 +164,8 @@ public partial class ImportViewModel : ObservableObject
                 catch (Exception ex)
                 {
                     ImportItems[i].Status = $"❌ OCR失败: {ex.Message}";
-                    ocrResults[i] = (supported[i], "", "");
-                    LogError(supported[i], ex);
+                    ocrResults[i] = (effectiveFiles[i], "", hash);
+                    LogError(effectiveFiles[i], ex);
                 }
             }
 
