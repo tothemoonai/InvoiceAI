@@ -8,6 +8,41 @@ namespace InvoiceAI.App;
 public static class TestRunner
 {
     /// <summary>
+    /// 查找 MAUI 应用使用的 invoices.db 数据库路径。
+    /// MAUI 使用: FileSystem.AppDataDirectory + "invoices.db"
+    /// 在 Windows 上, 这通常解析为:
+    ///   C:\Users\<user>\AppData\Local\User Name\<package-id>\Data\invoices.db
+    /// 或回退到:
+    ///   %APPDATA%\InvoiceAI\invoices.db
+    /// </summary>
+    private static string FindDatabasePath()
+    {
+        // 搜索 MAUI 在 Windows 上使用的可能路径
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        
+        var possiblePaths = new[]
+        {
+            // MAUI 常见路径 (unpackaged WinUI3)
+            Path.Combine(localAppData, "User Name", "com.companyname.invoiceai.app", "Data", "invoices.db"),
+            Path.Combine(localAppData, "com.companyname.invoiceai.app", "Data", "invoices.db"),
+            Path.Combine(localAppData, "com.companyname.invoiceai.app", "invoices.db"),
+            // 回退路径
+            Path.Combine(roamingAppData, "InvoiceAI", "invoices.db"),
+            Path.Combine(localAppData, "InvoiceAI", "invoices.db"),
+        };
+        
+        // 优先返回已存在的数据库
+        foreach (var p in possiblePaths)
+        {
+            if (File.Exists(p)) return p;
+        }
+        
+        // 如果没有找到，返回第一个路径（会在 EnsureCreatedAsync 时创建）
+        return possiblePaths[0];
+    }
+    
+    /// <summary>
     /// 从 AppContext.BaseDirectory 向上搜索，找到包含 TEMP/testdata 和 TEMP/testlog 的项目根目录。
     /// 只有同时存在这两个子目录才认为是真正的项目根目录。
     /// </summary>
@@ -25,7 +60,7 @@ public static class TestRunner
             if (string.IsNullOrEmpty(parent) || parent == dir) break;
             dir = parent;
         }
-        // fallback: 假设 6 级
+        // fallback: 假设 6 级 (src/InvoiceAI.App/bin/Debug/net9.0-windows10.0.19041.0/win10-x64/ → 项目根)
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));
     }
 
@@ -86,11 +121,9 @@ public static class TestRunner
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
 
-        // 数据库 (与主应用相同的路径)
-        var appDataDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var dbDir = Path.Combine(appDataDir, "InvoiceAI");
-        Directory.CreateDirectory(dbDir);
-        var dbPath = Path.Combine(dbDir, "invoices.db");
+        // 数据库 (使用 MAUI 应用相同的数据库路径)
+        var dbPath = FindDatabasePath();
+        Console.WriteLine($"[TEST] 数据库路径: {dbPath}");
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite($"Data Source={dbPath}"));
 

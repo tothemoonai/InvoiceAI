@@ -7,6 +7,31 @@ namespace InvoiceAI.App;
 public static class TestCases
 {
     /// <summary>
+    /// 查找 MAUI 应用使用的 invoices.db 数据库路径。
+    /// </summary>
+    private static string FindDatabasePath()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        
+        var possiblePaths = new[]
+        {
+            Path.Combine(localAppData, "User Name", "com.companyname.invoiceai.app", "Data", "invoices.db"),
+            Path.Combine(localAppData, "com.companyname.invoiceai.app", "Data", "invoices.db"),
+            Path.Combine(localAppData, "com.companyname.invoiceai.app", "invoices.db"),
+            Path.Combine(roamingAppData, "InvoiceAI", "invoices.db"),
+            Path.Combine(localAppData, "InvoiceAI", "invoices.db"),
+        };
+        
+        foreach (var p in possiblePaths)
+        {
+            if (File.Exists(p)) return p;
+        }
+        
+        return possiblePaths[0];
+    }
+    
+    /// <summary>
     /// 从 AppContext.BaseDirectory 向上搜索，找到包含 TEMP/testdata 和 TEMP/testlog 的项目根目录。
     /// 只有同时存在这两个子目录才认为是真正的项目根目录。
     /// </summary>
