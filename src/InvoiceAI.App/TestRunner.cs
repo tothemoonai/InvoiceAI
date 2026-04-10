@@ -7,8 +7,9 @@ namespace InvoiceAI.App;
 
 public static class TestRunner
 {
-    private static readonly string TestResultsDir = Path.Combine(
-        AppContext.BaseDirectory, "test_results");
+    // 测试日志输出目录: TEMP\testlog
+    private static readonly string TestLogDir = Path.Combine(
+        AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testlog");
 
     /// <summary>
     /// 主入口: 解析参数 → 构建 DI → 执行测试 → 退出
@@ -36,8 +37,8 @@ public static class TestRunner
         // 构建 DI 容器
         var services = BuildTestServices();
 
-        // 确保测试目录存在
-        Directory.CreateDirectory(TestResultsDir);
+        // 确保测试日志目录存在
+        Directory.CreateDirectory(TestLogDir);
 
         // 执行测试
         int exitCode;

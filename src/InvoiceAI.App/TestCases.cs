@@ -6,8 +6,9 @@ namespace InvoiceAI.App;
 
 public static class TestCases
 {
-    private static readonly string TestResultsDir = Path.Combine(
-        AppContext.BaseDirectory, "test_results");
+    // 测试日志/临时文件目录: TEMP\testlog
+    private static readonly string TestLogDir = Path.Combine(
+        AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testlog");
 
     // ─── 1. Load: 数据加载 ─────────────────────────────
 
@@ -127,38 +128,25 @@ public static class TestCases
         var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
         await db.Database.EnsureCreatedAsync();
 
-        // 查找测试用发票图片
-        var invoiceDirs = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "invoices", "食料品"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "invoices", "交通費"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "invoices", "電気・ガス")
-        };
-
+        // 查找 TEMP\testdata 目录下的测试用发票图片
+        var testDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "TEMP", "testdata");
         string? testImage = null;
-        foreach (var dir in invoiceDirs)
+        if (Directory.Exists(testDir))
         {
-            if (Directory.Exists(dir))
-            {
-                var images = Directory.GetFiles(dir, "*.jpg")
-                    .Concat(Directory.GetFiles(dir, "*.png"))
-                    .Concat(Directory.GetFiles(dir, "*.jpeg"))
-                    .FirstOrDefault();
-                if (!string.IsNullOrEmpty(images))
-                {
-                    testImage = images;
-                    break;
-                }
-            }
+            testImage = Directory.GetFiles(testDir, "*.jpg")
+                .Concat(Directory.GetFiles(testDir, "*.png"))
+                .Concat(Directory.GetFiles(testDir, "*.jpeg"))
+                .Concat(Directory.GetFiles(testDir, "*.pdf"))
+                .FirstOrDefault();
         }
 
         if (string.IsNullOrEmpty(testImage) || !File.Exists(testImage))
         {
             return new TestCaseResult(
                 "import",
-                "查找 invoices/ 目录下的发票图片",
+                "查找 TEMP\\testdata 目录下的测试图片",
                 "找到测试图片",
-                "未找到可用的测试发票图片 (食料品/交通費/電気・ガス 目录下无 jpg/png)",
+                "未找到可用的测试发票图片 (TEMP\\testdata 目录下无 jpg/png/pdf)",
                 null,
                 true, // SKIP
                 "无测试图片，跳过导入测试"
@@ -285,7 +273,7 @@ public static class TestCases
         await db.Database.EnsureCreatedAsync();
 
         var invoices = await invoiceService.GetAllAsync();
-        var exportPath = Path.Combine(TestResultsDir, $"test_export_{DateTime.Now:HHmmss}.xlsx");
+        var exportPath = Path.Combine(TestLogDir, $"test_export_{DateTime.Now:HHmmss}.xlsx");
 
         try
         {

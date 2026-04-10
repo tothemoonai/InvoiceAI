@@ -29,6 +29,26 @@ public partial class App : Application
         base.OnStart();
         await _settingsService.LoadAsync();
         await _dbContext.Database.EnsureCreatedAsync();
+
+        // 临时诊断: 检查 IsConfirmed 数据一致性
+        var total = await _dbContext.Invoices.CountAsync();
+        var confirmed = await _dbContext.Invoices.CountAsync(i => i.IsConfirmed);
+        var unconfirmed = await _dbContext.Invoices.CountAsync(i => !i.IsConfirmed);
+        var discrepancy = total - confirmed - unconfirmed;
+        System.Diagnostics.Debug.WriteLine($"[DIAG] Total={total}, Confirmed={confirmed}, Unconfirmed={unconfirmed}, Discrepancy={discrepancy}");
+
+        if (discrepancy > 0)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DIAG] ⚠ 发现 {discrepancy} 条 IsConfirmed=NULL 的记录，正在修复...");
+            using var conn = _dbContext.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Invoices SET IsConfirmed = 0 WHERE IsConfirmed IS NULL";
+            var fixedCount = await cmd.ExecuteNonQueryAsync();
+            await _dbContext.SaveChangesAsync();
+            System.Diagnostics.Debug.WriteLine($"[DIAG] 已修复 {fixedCount} 条记录，设置 IsConfirmed=0");
+        }
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
