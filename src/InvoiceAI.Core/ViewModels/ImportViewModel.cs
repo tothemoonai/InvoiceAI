@@ -61,21 +61,22 @@ public partial class ImportViewModel : ObservableObject
         try
         {
             // ── Phase 0: Convert PDF to images ────────────────────
+            var pdfArchivePath = _settingsService.Settings.InvoiceArchivePath;
             var pdfConvertedPaths = new List<string>(); // 存储转换后的图片路径
             var pdfConversionMap = new Dictionary<int, List<int>>(); // 原始文件索引 → 转换后的图片索引列表
-            
+
             for (int i = 0; i < n; i++)
             {
                 if (!IsProcessing) return;
                 StatusMessage = $"检查文件类型 ({i + 1}/{n})...";
-                
+
                 var ext = Path.GetExtension(supported[i]);
                 if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 {
                     ImportItems[i].Status = "📄 PDF转换中...";
                     try
                     {
-                        var images = await _fileService.ConvertPdfToImagesAsync(supported[i]);
+                        var images = await _fileService.ConvertPdfToImagesAsync(supported[i], pdfArchivePath);
                         var startIdx = pdfConvertedPaths.Count;
                         foreach (var img in images)
                         {
