@@ -10,6 +10,7 @@ public interface IFileService
     
     /// <summary>
     /// 将 PDF 文件转换为图片列表。如果不是 PDF，返回原始路径。
+    /// 图片保存到 archiveBasePath/PDF/{pdfFileName}/ 目录下。
     /// </summary>
-    Task<IReadOnlyList<string>> ConvertPdfToImagesAsync(string pdfFilePath);
+    Task<IReadOnlyList<string>> ConvertPdfToImagesAsync(string pdfFilePath, string archiveBasePath);
 }

@@ -60,11 +60,12 @@ public class FileService : IFileService
     }
 
     /// <summary>
-    /// 将 PDF 文件转换为图片（每页一张），保存到 TEMP/testdata/images/ 目录。
-    /// 返回转换后的图片路径列表（单页 PDF 返回单个路径，多页 PDF 返回多个路径）。
+    /// 将 PDF 文件转换为图片（每页一张），保存到用户设置的归档目录下的 PDF 子目录。
+    /// 目录结构: {archiveBasePath}/PDF/{pdfFileNameWithoutExt}/page_1.jpg, page_2.jpg, ...
+    /// 返回转换后的图片路径列表。
     /// 如果输入文件不是 PDF 或转换失败，返回原始文件路径。
     /// </summary>
-    public async Task<IReadOnlyList<string>> ConvertPdfToImagesAsync(string pdfFilePath)
+    public async Task<IReadOnlyList<string>> ConvertPdfToImagesAsync(string pdfFilePath, string archiveBasePath)
     {
         var ext = Path.GetExtension(pdfFilePath);
         if (!ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
@@ -73,13 +74,11 @@ public class FileService : IFileService
         var images = new List<string>();
         try
         {
-            // 输出目录: TEMP/testdata/images/ (项目根目录下)
-            var projectRoot = FindProjectRoot();
-            var outputDir = Path.Combine(projectRoot, "TEMP", "testdata", "images");
-            Directory.CreateDirectory(outputDir);
+            // 输出目录: {archiveBasePath}/PDF/{pdfFileName}/
+            var pdfFileName = Path.GetFileNameWithoutExtension(pdfFilePath);
+            var pdfDir = Path.Combine(archiveBasePath, "PDF", pdfFileName);
+            Directory.CreateDirectory(pdfDir);
 
-            var baseName = Path.GetFileNameWithoutExtension(pdfFilePath);
-            
             // 使用同步方法获取所有页面
             var bitmaps = PDFtoImage.Conversion.ToImages(pdfFilePath);
             var bitmapsList = bitmaps.ToList();
@@ -88,13 +87,13 @@ public class FileService : IFileService
             for (int i = 0; i < pageCount; i++)
             {
                 var pageFileName = pageCount == 1
-                    ? $"{baseName}.jpg"
-                    : $"{baseName}_p{i + 1}.jpg";
-                var outputPath = Path.Combine(outputDir, pageFileName);
+                    ? $"{pdfFileName}.jpg"
+                    : $"page_{i + 1}.jpg";
+                var outputPath = Path.Combine(pdfDir, pageFileName);
 
                 var bitmap = bitmapsList[i];
                 using var image = SkiaSharpToImageSharp(bitmap);
-                
+
                 // 压缩到合适尺寸
                 if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
                 {
@@ -125,27 +124,9 @@ public class FileService : IFileService
     /// </summary>
     private static SixLabors.ImageSharp.Image SkiaSharpToImageSharp(SkiaSharp.SKBitmap bitmap)
     {
-        var info = bitmap.Info;
         var pixels = bitmap.GetPixelSpan();
         return SixLabors.ImageSharp.Image.LoadPixelData<SixLabors.ImageSharp.PixelFormats.Rgba32>(
             pixels, bitmap.Width, bitmap.Height);
-    }
-
-    /// <summary>
-    /// 查找项目根目录（包含 TEMP 子目录的目录）
-    /// </summary>
-    private static string FindProjectRoot()
-    {
-        var dir = AppContext.BaseDirectory;
-        for (int i = 0; i < 15; i++)
-        {
-            if (Directory.Exists(Path.Combine(dir, "TEMP")))
-                return dir;
-            var parent = Path.GetDirectoryName(dir);
-            if (string.IsNullOrEmpty(parent) || parent == dir) break;
-            dir = parent;
-        }
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));
     }
 
     public async Task<string?> CopyToInvoiceArchiveAsync(string sourceFilePath, string archiveBasePath, string category, string issuerName, DateTime? transactionDate)
