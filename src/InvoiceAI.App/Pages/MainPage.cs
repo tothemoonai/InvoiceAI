@@ -752,28 +752,20 @@ public class MainPage : ContentPage
     private void LoadInvoiceImagePreview(Invoice invoice)
     {
         var imagePath = FindInvoiceImagePath(invoice);
-        System.Diagnostics.Debug.WriteLine($"[IMG] FindInvoiceImagePath returned: {imagePath ?? "null"}");
-        if (imagePath != null)
-            System.Diagnostics.Debug.WriteLine($"[IMG] File.Exists: {File.Exists(imagePath)}");
-        
         if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[IMG] Setting image source: {imagePath}");
                 _invoicePreviewImage.Source = ImageSource.FromFile(imagePath);
                 _invoicePreviewImage.IsVisible = true;
-                System.Diagnostics.Debug.WriteLine($"[IMG] IsVisible set to true");
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"[IMG] Exception: {ex.Message}");
                 _invoicePreviewImage.IsVisible = false;
             }
         }
         else
         {
-            System.Diagnostics.Debug.WriteLine($"[IMG] No valid image path found");
             _invoicePreviewImage.IsVisible = false;
         }
     }
