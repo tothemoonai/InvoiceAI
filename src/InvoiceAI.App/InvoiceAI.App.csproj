@@ -71,10 +71,7 @@
 	  <ProjectReference Include="..\InvoiceAI.Models\InvoiceAI.Models.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<None Update="appsettings.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
+	<!-- appsettings.json 不自动复制到输出目录，避免覆盖用户配置 -->
+	<!-- 首次运行或需要重置配置时，手动从 AppData\Local\InvoiceAI\appsettings.json 复制 -->
 
 </Project>
