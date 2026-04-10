@@ -48,6 +48,9 @@ public class MainPage : ContentPage
 
         BackgroundColor = ThemeManager.Background;
 
+        // 隐藏系统导航栏（使用自定义标题栏）
+        NavigationPage.SetHasNavigationBar(this, false);
+
         BuildUI();
         WireEvents();
 
