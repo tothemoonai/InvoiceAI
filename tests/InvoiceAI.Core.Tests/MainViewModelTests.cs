@@ -34,7 +34,7 @@ public class MainViewModelTests
             new() { Id = 1, IssuerName = "A社" },
             new() { Id = 2, IssuerName = "B社" }
         };
-        _invoiceMock.Setup(i => i.GetAllAsync()).ReturnsAsync(invoices);
+        _invoiceMock.Setup(i => i.GetUnconfirmedAsync()).ReturnsAsync(invoices);
         _invoiceMock.Setup(i => i.GetCategoryCountsAsync())
             .ReturnsAsync(new Dictionary<string, int> { { "電気・ガス", 3 } });
 
@@ -52,7 +52,7 @@ public class MainViewModelTests
     {
         SetupSettings();
         var invoices = new List<Invoice> { new() { Id = 1 }, new() { Id = 2 } };
-        _invoiceMock.Setup(i => i.GetAllAsync()).ReturnsAsync(invoices);
+        _invoiceMock.Setup(i => i.GetUnconfirmedAsync()).ReturnsAsync(invoices);
 
         var vm = CreateVm();
         await vm.FilterByCategoryCommand.ExecuteAsync("全部");
@@ -110,8 +110,8 @@ public class MainViewModelTests
     public async Task SearchAsync_EmptyText_ReloadsAll()
     {
         SetupSettings();
-        var all = new List<Invoice> { new() { Id = 1 }, new() { Id = 2 } };
-        _invoiceMock.Setup(i => i.GetAllAsync()).ReturnsAsync(all);
+        var invoices = new List<Invoice> { new() { Id = 1 }, new() { Id = 2 } };
+        _invoiceMock.Setup(i => i.GetUnconfirmedAsync()).ReturnsAsync(invoices);
         _invoiceMock.Setup(i => i.GetCategoryCountsAsync())
             .ReturnsAsync(new Dictionary<string, int>());
         var vm = CreateVm();
