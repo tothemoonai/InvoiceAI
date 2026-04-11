@@ -620,6 +620,7 @@ public class MainPage : ContentPage
         // Detail ScrollView (visible when invoice selected, scrollable content below fixed buttons)
         var detailWrapper = new ScrollView
         {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Always,
             Content = new VerticalStackLayout
             {
                 Padding = new Thickness(16, 0, 16, 16),
@@ -638,12 +639,17 @@ public class MainPage : ContentPage
         detailWrapper.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
 
         // Wrapper with fixed buttons at top and scrollable content below
-        var detailContainer = new VerticalStackLayout
+        var detailContainer = new Grid
         {
+            RowDefinitions =
+            {
+                new RowDefinition(new GridLength(1, GridUnitType.Auto)),    // actions buttons
+                new RowDefinition(new GridLength(1, GridUnitType.Star))     // scrollable content
+            },
             Children =
             {
-                actions,
-                detailWrapper
+                actions.Row(0),
+                detailWrapper.Row(1)
             }
         };
         detailContainer.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
@@ -675,6 +681,10 @@ public class MainPage : ContentPage
             StrokeThickness = 0,
             Content = new Grid
             {
+                RowDefinitions =
+                {
+                    new RowDefinition(new GridLength(1, GridUnitType.Star))
+                },
                 Children = { emptyState, detailContainer }
             }
         };
