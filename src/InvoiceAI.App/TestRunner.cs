@@ -186,9 +186,11 @@ public static class TestRunner
                 "pdfimport" => await TestCases.TestPdfImport(services),
                 "saved" => await TestCases.TestSaved(services),
                 "edit" => await TestCases.TestEdit(services),
+                "editsave" => await TestCases.TestEditSave(services),
+                "editvalidation" => await TestCases.TestEditValidation(services),
                 _ => new TestCaseResult(
                     caseName, "N/A", "有效的测试用例", "N/A", null, false,
-                    $"未知的测试用例: {caseName}。可用: load, category, search, import, export, delete, imagepath, saved, edit")
+                    $"未知的测试用例: {caseName}。可用: load, category, search, import, export, delete, imagepath, pdfconvert, pdfimport, saved, edit, editsave, editvalidation")
             };
 
             PrintResult(result);

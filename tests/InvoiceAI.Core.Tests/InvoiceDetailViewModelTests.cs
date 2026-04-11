@@ -117,7 +117,7 @@ public class InvoiceDetailViewModelTests
         _invoiceMock.Setup(i => i.UpdateAsync(It.IsAny<Invoice>()))
             .Returns(Task.CompletedTask);
         var vm = CreateVm();
-        var invoice = new Invoice { Id = 1, IsConfirmed = false };
+        var invoice = new Invoice { Id = 1, IsConfirmed = false, IssuerName = "Test Issuer", ItemsJson = "[]" };
         vm.CurrentInvoice = invoice;
         await vm.SaveCommand.ExecuteAsync(null);
         Assert.True(invoice.IsConfirmed);
@@ -129,6 +129,18 @@ public class InvoiceDetailViewModelTests
     {
         var vm = CreateVm();
         await vm.SaveCommand.ExecuteAsync(null);
+        _invoiceMock.Verify(i => i.UpdateAsync(It.IsAny<Invoice>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveAsync_EmptyIssuerName_SetsValidationError()
+    {
+        var vm = CreateVm();
+        var invoice = new Invoice { Id = 1, IsConfirmed = false, IssuerName = "", ItemsJson = "[]" };
+        vm.CurrentInvoice = invoice;
+        await vm.SaveCommand.ExecuteAsync(null);
+        Assert.False(invoice.IsConfirmed);
+        Assert.False(string.IsNullOrEmpty(vm.ValidationError));
         _invoiceMock.Verify(i => i.UpdateAsync(It.IsAny<Invoice>()), Times.Never);
     }
 }

@@ -711,4 +711,221 @@ public static class TestCases
             passed ? null : "编辑后字段值未正确更新"
         );
     }
+
+    // ─── 10. EditSave: ViewModel 编辑保存流程 ─────────
+
+    public static async Task<TestCaseResult> TestEditSave(IServiceProvider services)
+    {
+        var invoiceService = services.GetRequiredService<IInvoiceService>();
+        var settingsService = services.GetRequiredService<IAppSettingsService>();
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var detail = new System.Text.StringBuilder();
+        bool allPassed = true;
+        var errors = new System.Text.StringBuilder();
+
+        // 创建测试发票
+        var testInvoice = new Invoice
+        {
+            IssuerName = "テスト会社",
+            RegistrationNumber = "T1234567890123",
+            TransactionDate = new DateTime(2026, 4, 1),
+            Description = "原始内容",
+            Category = "食料品",
+            TaxExcludedAmount = 1000,
+            TaxIncludedAmount = 1100,
+            TaxAmount = 100,
+            RecipientName = "交付先テスト",
+            InvoiceType = InvoiceType.Standard,
+            ItemsJson = System.Text.Json.JsonSerializer.Serialize(new List<InvoiceItem>
+            {
+                new() { Name = "品目1", Amount = 500, TaxRate = 10 },
+                new() { Name = "品目2", Amount = 600, TaxRate = 10 }
+            }),
+            MissingFields = "[]",
+            IsConfirmed = false
+        };
+
+        var saved = await invoiceService.SaveAsync(testInvoice);
+        detail.AppendLine($"1. 创建测试发票 ID={saved.Id}");
+
+        // 创建 ViewModel 并设置 CurrentInvoice
+        var vm = new InvoiceAI.Core.ViewModels.InvoiceDetailViewModel(invoiceService, settingsService);
+        vm.CurrentInvoice = saved;
+
+        detail.AppendLine($"2. ViewModel.CurrentInvoice 设置完成");
+
+        // 验证初始状态
+        if (vm.IsEditMode)
+        {
+            allPassed = false;
+            errors.AppendLine("初始 IsEditMode 应为 false");
+        }
+        detail.AppendLine($"3. 初始 IsEditMode={vm.IsEditMode} ✓");
+
+        // 验证编辑字段加载
+        if (vm.EditIssuerName != "テスト会社" || vm.EditDescription != "原始内容")
+        {
+            allPassed = false;
+            errors.AppendLine("编辑字段未正确加载");
+        }
+        detail.AppendLine($"4. 编辑字段: IssuerName=\"{vm.EditIssuerName}\", Description=\"{vm.EditDescription}\" ✓");
+
+        // 进入编辑模式
+        vm.StartEditingCommand.Execute(null);
+        if (!vm.IsEditMode)
+        {
+            allPassed = false;
+            errors.AppendLine("StartEditing 后 IsEditMode 应为 true");
+        }
+        detail.AppendLine($"5. StartEditing 后 IsEditMode={vm.IsEditMode} ✓");
+
+        // 修改字段
+        vm.EditIssuerName = "修正済み会社";
+        vm.EditDescription = "修正后的内容";
+        vm.EditCategory = "交通費";
+        vm.EditTaxIncludedAmount = 1200;
+        vm.EditRecipientName = "新しい交付先";
+
+        // 修改明细项目
+        if (vm.InvoiceItems.Count > 0)
+        {
+            vm.InvoiceItems[0].Name = "修正品目1";
+            vm.InvoiceItems[0].Amount = 550;
+        }
+        detail.AppendLine($"6. 修改编辑字段");
+
+        // 保存
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        if (vm.IsEditMode)
+        {
+            allPassed = false;
+            errors.AppendLine("保存后 IsEditMode 应为 false");
+        }
+        detail.AppendLine($"7. Save 后 IsEditMode={vm.IsEditMode} ✓");
+
+        if (!string.IsNullOrEmpty(vm.ValidationError))
+        {
+            allPassed = false;
+            errors.AppendLine($"保存后不应有验证错误: {vm.ValidationError}");
+        }
+        detail.AppendLine($"8. ValidationError=\"{vm.ValidationError}\" ✓");
+
+        // 验证数据库
+        var reloaded = await invoiceService.GetByIdAsync(saved.Id);
+        if (reloaded == null)
+        {
+            allPassed = false;
+            errors.AppendLine("数据库中找不到发票记录");
+        }
+        else
+        {
+            detail.AppendLine($"9. 从数据库重新读取:");
+            detail.AppendLine($"   IssuerName: {reloaded.IssuerName} (期望: 修正済み会社)");
+            detail.AppendLine($"   Description: {reloaded.Description} (期望: 修正后的内容)");
+            detail.AppendLine($"   Category: {reloaded.Category} (期望: 交通費)");
+            detail.AppendLine($"   TaxIncludedAmount: {reloaded.TaxIncludedAmount} (期望: 1200)");
+            detail.AppendLine($"   RecipientName: {reloaded.RecipientName} (期望: 新しい交付先)");
+            detail.AppendLine($"   IsConfirmed: {reloaded.IsConfirmed} (期望: True)");
+
+            if (reloaded.IssuerName != "修正済み会社" ||
+                reloaded.Description != "修正后的内容" ||
+                reloaded.Category != "交通費" ||
+                reloaded.TaxIncludedAmount != 1200 ||
+                reloaded.RecipientName != "新しい交付先" ||
+                !reloaded.IsConfirmed)
+            {
+                allPassed = false;
+                errors.AppendLine("数据库中的值与预期不符");
+            }
+
+            // 验证 ItemsJson
+            var items = System.Text.Json.JsonSerializer.Deserialize<List<InvoiceItem>>(reloaded.ItemsJson ?? "[]");
+            if (items != null && items.Count > 0)
+            {
+                detail.AppendLine($"   Items[0].Name: {items[0].Name} (期望: 修正品目1)");
+                detail.AppendLine($"   Items[0].Amount: {items[0].Amount} (期望: 550)");
+
+                if (items[0].Name != "修正品目1" || items[0].Amount != 550)
+                {
+                    allPassed = false;
+                    errors.AppendLine("明细项目未正确保存");
+                }
+            }
+        }
+
+        // 验证类型显示
+        if (vm.InvoiceTypeDisplay != "✅ 標準インボイス")
+        {
+            allPassed = false;
+            errors.AppendLine($"InvoiceTypeDisplay 应为 '✅ 標準インボイス'，实际: {vm.InvoiceTypeDisplay}");
+        }
+        detail.AppendLine($"10. InvoiceTypeDisplay=\"{vm.InvoiceTypeDisplay}\" ✓");
+
+        // 清理
+        await invoiceService.DeleteAsync(saved.Id);
+        detail.AppendLine($"11. 清理测试数据 ✓");
+
+        return new TestCaseResult(
+            "editsave",
+            "ViewModel 编辑保存完整流程",
+            "进入编辑模式 → 修改字段 → 保存 → 数据库更新 → IsConfirmed=true → 退出编辑模式",
+            detail.ToString().Trim(),
+            null,
+            allPassed,
+            allPassed ? null : errors.ToString().Trim()
+        );
+    }
+
+    // ─── 11. EditValidation: 编辑验证 ─────────────────
+
+    public static async Task<TestCaseResult> TestEditValidation(IServiceProvider services)
+    {
+        var invoiceService = services.GetRequiredService<IInvoiceService>();
+        var settingsService = services.GetRequiredService<IAppSettingsService>();
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        // 创建发行方为空的发票
+        var testInvoice = new Invoice
+        {
+            IssuerName = "",
+            Description = "测试验证",
+            Category = "测试",
+            IsConfirmed = false,
+            ItemsJson = "[]"
+        };
+
+        var saved = await invoiceService.SaveAsync(testInvoice);
+
+        var vm = new InvoiceAI.Core.ViewModels.InvoiceDetailViewModel(invoiceService, settingsService);
+        vm.CurrentInvoice = saved;
+
+        // 进入编辑模式
+        vm.StartEditingCommand.Execute(null);
+
+        // 尝试保存（应失败，因为 IssuerName 为空）
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        bool passed = !string.IsNullOrEmpty(vm.ValidationError);
+
+        // 清理
+        await invoiceService.DeleteAsync(saved.Id);
+
+        return new TestCaseResult(
+            "editvalidation",
+            "编辑验证: 空 IssuerName 应阻止保存",
+            "ValidationError 应包含错误消息，IsConfirmed 应为 false",
+            passed ? $"验证通过: ValidationError=\"{vm.ValidationError}\"" : $"验证失败: ValidationError=\"{vm.ValidationError}\"",
+            null,
+            passed,
+            passed ? null : "空 IssuerName 未触发验证错误"
+        );
+    }
 }
