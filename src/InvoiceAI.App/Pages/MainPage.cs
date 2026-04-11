@@ -20,6 +20,7 @@ public class MainPage : ContentPage
     private readonly IServiceProvider _services;
 
     private CollectionView _invoiceList = null!;
+    private CollectionView _itemsList = null!;
     private VerticalStackLayout _detailContent = null!;
     private Image _invoicePreviewImage = null!;
     private Border _importOverlay = null!;
@@ -27,6 +28,17 @@ public class MainPage : ContentPage
     private Label _statusBar = null!;
     private Label _importStatusLabel = null!;
     private ProgressBar _importProgressBar = null!;
+
+    // 编辑控件
+    private Entry _issuerEntry = null!;
+    private Entry _regNumberEntry = null!;
+    private DatePicker _datePicker = null!;
+    private Entry _descriptionEntry = null!;
+    private Picker _categoryPicker = null!;
+    private Entry _exclAmountEntry = null!;
+    private Entry _inclAmountEntry = null!;
+    private Entry _taxAmountEntry = null!;
+    private Entry _recipientEntry = null!;
 
     private LayoutMode _layoutMode = LayoutMode.Standard;
     private enum LayoutMode { Expanded, Standard }
@@ -491,51 +503,12 @@ public class MainPage : ContentPage
         itemsHeader.SetBinding(IsVisibleProperty, nameof(_detailVm.InvoiceItems));
 
         // Items CollectionView
-        var itemsList = new CollectionView
+        _itemsList = new CollectionView
         {
             ItemsSource = _detailVm.InvoiceItems,
-            ItemTemplate = new DataTemplate(() =>
-            {
-                var nameLbl = new Label { FontSize = 13 };
-                nameLbl.SetBinding(Label.TextProperty, nameof(InvoiceItem.Name));
-
-                var rateLbl = new Label { FontSize = 13, TextColor = ThemeManager.TextSecondary };
-                rateLbl.SetBinding(Label.TextProperty, nameof(InvoiceItem.TaxRate), stringFormat: "{0}%");
-
-                var amtLbl = new Label
-                {
-                    FontSize = 13,
-                    FontAttributes = FontAttributes.Bold,
-                    HorizontalOptions = LayoutOptions.End
-                };
-                amtLbl.SetBinding(Label.TextProperty, nameof(InvoiceItem.Amount), stringFormat: "¥{0:N0}");
-
-                return new Border
-                {
-                    BackgroundColor = ThemeManager.Background,
-                    Margin = new Thickness(0, 2),
-                    Padding = new Thickness(10, 6),
-                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
-                    StrokeThickness = 0,
-                    Content = new Grid
-                    {
-                        ColumnDefinitions =
-                        {
-                            new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
-                            new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
-                            new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
-                        },
-                        Children =
-                        {
-                            nameLbl.Column(0),
-                            rateLbl.Column(1),
-                            amtLbl.Column(2)
-                        }
-                    }
-                };
-            })
+            ItemTemplate = new DataTemplate(() => BuildInvoiceItemTemplate())
         };
-        itemsList.SetBinding(IsVisibleProperty, nameof(_detailVm.InvoiceItems));
+        _itemsList.SetBinding(IsVisibleProperty, nameof(_detailVm.InvoiceItems));
 
         // Missing fields
         var missingText = new Label
@@ -565,13 +538,81 @@ public class MainPage : ContentPage
         missingBorder.SetBinding(IsVisibleProperty, nameof(_detailVm.MissingFieldsDisplay));
 
         // Action buttons (fixed at top, outside ScrollView)
+        // 编辑模式按钮
+        var editBtn = new Button
+        {
+            Text = "✏ 编辑",
+            BackgroundColor = ThemeManager.BrandPrimary,
+            TextColor = Colors.White,
+            FontSize = 13,
+            Padding = new Thickness(12, 6),
+            MinimumHeightRequest = 36,
+            BindingContext = _detailVm
+        };
+        editBtn.SetBinding(Button.CommandProperty, nameof(InvoiceDetailViewModel.StartEditingCommand));
+
+        // 保存按钮
+        var saveBtn = new Button
+        {
+            Text = "💾 保存",
+            BackgroundColor = ThemeManager.Success,
+            TextColor = Colors.White,
+            FontSize = 13,
+            Padding = new Thickness(12, 6),
+            MinimumHeightRequest = 36,
+            BindingContext = _detailVm
+        };
+        saveBtn.SetBinding(Button.CommandProperty, nameof(InvoiceDetailViewModel.SaveCommand));
+
+        // 取消按钮
+        var cancelBtn = new Button
+        {
+            Text = "✕ 取消",
+            BackgroundColor = ThemeManager.TextSecondary,
+            TextColor = Colors.White,
+            FontSize = 13,
+            Padding = new Thickness(12, 6),
+            MinimumHeightRequest = 36,
+            BindingContext = _detailVm
+        };
+        cancelBtn.SetBinding(Button.CommandProperty, nameof(InvoiceDetailViewModel.CancelEditingCommand));
+
+        // 删除按钮
+        var deleteBtn = new Button
+        {
+            Text = "🗑 删除",
+            BackgroundColor = ThemeManager.Error,
+            TextColor = Colors.White,
+            FontSize = 13,
+            Padding = new Thickness(12, 6),
+            MinimumHeightRequest = 36
+        };
+        deleteBtn.Clicked += OnDeleteClicked;
+
+        var editModeButtons = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            BindingContext = _detailVm,
+            Children = { saveBtn, cancelBtn }
+        };
+        editModeButtons.SetBinding(IsVisibleProperty, nameof(InvoiceDetailViewModel.IsEditMode));
+
+        var normalModeButtons = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            BindingContext = _detailVm,
+            Children = { editBtn, deleteBtn }
+        };
+        normalModeButtons.SetBinding(IsVisibleProperty, nameof(InvoiceDetailViewModel.IsEditMode), converter: new InverseBoolConverter());
+
         var actions = new HorizontalStackLayout
         {
             Spacing = 8,
             Padding = new Thickness(16, 12, 16, 8),
             Children =
             {
-                BuildActionButton("🗑 删除", OnDeleteClicked, ThemeManager.Error)
+                normalModeButtons,
+                editModeButtons
             }
         };
         actions.SetBinding(IsVisibleProperty, nameof(_detailVm.CurrentInvoice));
@@ -589,7 +630,7 @@ public class MainPage : ContentPage
                     previewBorder,
                     _detailContent,
                     itemsHeader,
-                    itemsList,
+                    _itemsList,
                     missingBorder
                 }
             }
@@ -636,6 +677,61 @@ public class MainPage : ContentPage
             {
                 Children = { emptyState, detailContainer }
             }
+        };
+    }
+
+    private Border BuildInvoiceItemTemplate()
+    {
+        var nameEntry = new Entry
+        {
+            FontSize = 13,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+        nameEntry.SetBinding(Entry.TextProperty, nameof(InvoiceItem.Name));
+        nameEntry.SetBinding(Entry.IsReadOnlyProperty, nameof(_detailVm.IsEditMode), converter: new InverseBoolConverter());
+
+        var rateLabel = new Label
+        {
+            FontSize = 13,
+            TextColor = ThemeManager.TextSecondary,
+            VerticalOptions = LayoutOptions.Center
+        };
+        rateLabel.SetBinding(Label.TextProperty, nameof(InvoiceItem.TaxRate), stringFormat: "{0}%");
+
+        var amountEntry = new Entry
+        {
+            FontSize = 13,
+            FontAttributes = FontAttributes.Bold,
+            HorizontalOptions = LayoutOptions.End,
+            Keyboard = Keyboard.Numeric
+        };
+        amountEntry.SetBinding(Entry.TextProperty, nameof(InvoiceItem.Amount), BindingMode.TwoWay, stringFormat: "{0:N0}");
+        amountEntry.SetBinding(Entry.IsReadOnlyProperty, nameof(_detailVm.IsEditMode), converter: new InverseBoolConverter());
+
+        var content = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+                new ColumnDefinition(new GridLength(1, GridUnitType.Auto)),
+                new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+            },
+            Children =
+            {
+                nameEntry.Column(0),
+                rateLabel.Column(1),
+                amountEntry.Column(2)
+            }
+        };
+
+        return new Border
+        {
+            BackgroundColor = ThemeManager.Background,
+            Margin = new Thickness(0, 2),
+            Padding = new Thickness(10, 6),
+            StrokeShape = new RoundRectangle { CornerRadius = 4 },
+            StrokeThickness = 0,
+            Content = content
         };
     }
 
@@ -734,26 +830,95 @@ public class MainPage : ContentPage
         // Load invoice image preview
         LoadInvoiceImagePreview(invoice);
 
-        _detailContent.Children.Add(BuildDetailRow("発行事業者", invoice.IssuerName));
-        _detailContent.Children.Add(BuildDetailRow("登録番号", invoice.RegistrationNumber));
+        if (_detailVm.IsEditMode)
+        {
+            // 编辑模式：显示可编辑控件（使用双向数据绑定）
+            _issuerEntry = new Entry { HorizontalOptions = LayoutOptions.Fill, BindingContext = _detailVm };
+            _issuerEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditIssuerName), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("発行事業者", _issuerEntry));
 
-        if (invoice.TransactionDate.HasValue)
-            _detailContent.Children.Add(BuildDetailRow("取引年月日", invoice.TransactionDate.Value.ToString("yyyy-MM-dd")));
+            _regNumberEntry = new Entry { HorizontalOptions = LayoutOptions.Fill, BindingContext = _detailVm };
+            _regNumberEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditRegistrationNumber), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("登録番号", _regNumberEntry));
 
-        _detailContent.Children.Add(BuildDetailRow("内容", invoice.Description));
-        _detailContent.Children.Add(BuildDetailRow("分类", invoice.Category));
+            _datePicker = new DatePicker
+            {
+                Format = "yyyy-MM-dd",
+                HorizontalOptions = LayoutOptions.Fill,
+                BindingContext = _detailVm
+            };
+            _datePicker.SetBinding(DatePicker.DateProperty, nameof(InvoiceDetailViewModel.EditTransactionDate), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("取引年月日", _datePicker));
 
-        if (invoice.TaxExcludedAmount.HasValue)
-            _detailContent.Children.Add(BuildDetailRow("税抜金額", $"¥{invoice.TaxExcludedAmount.Value:N0}"));
+            _descriptionEntry = new Entry { HorizontalOptions = LayoutOptions.Fill, BindingContext = _detailVm };
+            _descriptionEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditDescription), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("内容", _descriptionEntry));
 
-        if (invoice.TaxIncludedAmount.HasValue)
-            _detailContent.Children.Add(BuildDetailRow("税込金額", $"¥{invoice.TaxIncludedAmount.Value:N0}"));
+            _categoryPicker = new Picker
+            {
+                Title = "选择分类",
+                HorizontalOptions = LayoutOptions.Fill,
+                BindingContext = _detailVm
+            };
+            _categoryPicker.SetBinding(Picker.ItemsSourceProperty, nameof(InvoiceDetailViewModel.AvailableCategories));
+            _categoryPicker.SetBinding(Picker.SelectedItemProperty, nameof(InvoiceDetailViewModel.EditCategory), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("分类", _categoryPicker));
 
-        if (invoice.TaxAmount.HasValue)
-            _detailContent.Children.Add(BuildDetailRow("消費税額", $"¥{invoice.TaxAmount.Value:N0}"));
+            _exclAmountEntry = new Entry
+            {
+                Keyboard = Keyboard.Numeric,
+                HorizontalOptions = LayoutOptions.Fill,
+                BindingContext = _detailVm
+            };
+            _exclAmountEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditTaxExcludedAmount), BindingMode.TwoWay, stringFormat: "{0}");
+            _detailContent.Children.Add(BuildEditRow("税抜金額", _exclAmountEntry));
 
-        if (!string.IsNullOrEmpty(invoice.RecipientName))
-            _detailContent.Children.Add(BuildDetailRow("交付先", invoice.RecipientName));
+            _inclAmountEntry = new Entry
+            {
+                Keyboard = Keyboard.Numeric,
+                HorizontalOptions = LayoutOptions.Fill,
+                BindingContext = _detailVm
+            };
+            _inclAmountEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditTaxIncludedAmount), BindingMode.TwoWay, stringFormat: "{0}");
+            _detailContent.Children.Add(BuildEditRow("税込金額", _inclAmountEntry));
+
+            _taxAmountEntry = new Entry
+            {
+                Keyboard = Keyboard.Numeric,
+                HorizontalOptions = LayoutOptions.Fill,
+                BindingContext = _detailVm
+            };
+            _taxAmountEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditTaxAmount), BindingMode.TwoWay, stringFormat: "{0}");
+            _detailContent.Children.Add(BuildEditRow("消費税額", _taxAmountEntry));
+
+            _recipientEntry = new Entry { HorizontalOptions = LayoutOptions.Fill, BindingContext = _detailVm };
+            _recipientEntry.SetBinding(Entry.TextProperty, nameof(InvoiceDetailViewModel.EditRecipientName), BindingMode.TwoWay);
+            _detailContent.Children.Add(BuildEditRow("交付先", _recipientEntry));
+        }
+        else
+        {
+            // 只读模式
+            _detailContent.Children.Add(BuildDetailRow("発行事業者", invoice.IssuerName));
+            _detailContent.Children.Add(BuildDetailRow("登録番号", invoice.RegistrationNumber));
+
+            if (invoice.TransactionDate.HasValue)
+                _detailContent.Children.Add(BuildDetailRow("取引年月日", invoice.TransactionDate.Value.ToString("yyyy-MM-dd")));
+
+            _detailContent.Children.Add(BuildDetailRow("内容", invoice.Description));
+            _detailContent.Children.Add(BuildDetailRow("分类", invoice.Category));
+
+            if (invoice.TaxExcludedAmount.HasValue)
+                _detailContent.Children.Add(BuildDetailRow("税抜金額", $"¥{invoice.TaxExcludedAmount.Value:N0}"));
+
+            if (invoice.TaxIncludedAmount.HasValue)
+                _detailContent.Children.Add(BuildDetailRow("税込金額", $"¥{invoice.TaxIncludedAmount.Value:N0}"));
+
+            if (invoice.TaxAmount.HasValue)
+                _detailContent.Children.Add(BuildDetailRow("消費税額", $"¥{invoice.TaxAmount.Value:N0}"));
+
+            if (!string.IsNullOrEmpty(invoice.RecipientName))
+                _detailContent.Children.Add(BuildDetailRow("交付先", invoice.RecipientName));
+        }
     }
 
     private void LoadInvoiceImagePreview(Invoice invoice)
@@ -939,6 +1104,54 @@ public class MainPage : ContentPage
         };
     }
 
+    private static Border BuildEditRow(string label, View editor)
+    {
+        return new Border
+        {
+            BackgroundColor = ThemeManager.CardBackground,
+            Padding = new Thickness(12, 6),
+            StrokeShape = new RoundRectangle { CornerRadius = 4 },
+            StrokeThickness = 1,
+            Stroke = ThemeManager.BorderLight,
+            Content = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(120),
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Star))
+                },
+                Children =
+                {
+                    new Label
+                    {
+                        Text = label,
+                        FontSize = 13,
+                        TextColor = ThemeManager.TextSecondary,
+                        VerticalOptions = LayoutOptions.Center
+                    }.Column(0),
+                    editor.Column(1)
+                }
+            }
+        };
+    }
+
+    // ─── Converter: Inverse Bool ──────────────────────────────
+
+    public class InverseBoolConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool b) return !b;
+            return true;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool b) return !b;
+            return true;
+        }
+    }
+
     // ─── Helper: Action Button ────────────────────────────────
 
     private static Button BuildActionButton(string text, EventHandler onClick, Color bgColor)
@@ -962,8 +1175,18 @@ public class MainPage : ContentPage
     {
         _detailVm.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(_detailVm.CurrentInvoice))
+            if (e.PropertyName == nameof(_detailVm.CurrentInvoice) ||
+                e.PropertyName == nameof(_detailVm.IsEditMode))
                 MainThread.BeginInvokeOnMainThread(RefreshDetailContent);
+
+            if (e.PropertyName == nameof(_detailVm.ValidationError) &&
+                !string.IsNullOrEmpty(_detailVm.ValidationError))
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await this.DisplayAlert("验证错误", _detailVm.ValidationError, "OK");
+                });
+            }
         };
 
         _importVm.PropertyChanged += (s, e) =>
