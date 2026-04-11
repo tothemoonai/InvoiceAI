@@ -187,7 +187,11 @@ public class MainPage : ContentPage
                 },
                 Children =
                 {
-                    new VerticalStackLayout { Children = { categoryList } }.Row(0),
+                    new ScrollView 
+                    { 
+                        Content = new VerticalStackLayout { Children = { categoryList } },
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Always
+                    }.Row(0),
 
                     new BoxView
                     {
