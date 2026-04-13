@@ -257,6 +257,92 @@ catch (Exception ex)
     Console.WriteLine();
 }
 
+// 测试 4: 已导出发票编辑（IsConfirmed=true 的发票）
+Console.WriteLine("测试 4: 已导出发票编辑（IsConfirmed=true）");
+Console.WriteLine("-".Repeat(50));
+try
+{
+    // 创建并导出发票
+    var testInvoice = new Invoice
+    {
+        IssuerName = "导出会社",
+        Description = "导出前内容",
+        Category = "食料品",
+        TaxIncludedAmount = 1000,
+        InvoiceType = InvoiceType.Standard,
+        ItemsJson = "[]",
+        IsConfirmed = true  // 模拟已导出
+    };
+
+    var saved = await invoiceService.SaveAsync(testInvoice);
+    Console.WriteLine($"  ✓ 创建已导出发票 ID={saved.Id}, IsConfirmed={saved.IsConfirmed}");
+
+    // 模拟编辑（与 SavedInvoiceDetailDialog 相同逻辑）
+    saved.IssuerName = "修正会社";
+    saved.Description = "修正后内容";
+    saved.Category = "交通費";
+    saved.TaxIncludedAmount = 1500;
+    saved.ItemsJson = System.Text.Json.JsonSerializer.Serialize(new System.Collections.Generic.List<InvoiceItem>
+    {
+        new() { Name = "品目A", Amount = 800, TaxRate = 10 }
+    });
+    saved.UpdatedAt = DateTime.UtcNow;
+    // 注意：不改变 IsConfirmed
+
+    await invoiceService.UpdateAsync(saved);
+    Console.WriteLine($"  ✓ 执行更新");
+
+    // 验证
+    var reloaded = await invoiceService.GetByIdAsync(saved.Id);
+    bool dbPassed = reloaded != null
+        && reloaded.IssuerName == "修正会社"
+        && reloaded.Description == "修正后内容"
+        && reloaded.Category == "交通費"
+        && reloaded.TaxIncludedAmount == 1500
+        && reloaded.IsConfirmed;  // 已导出发票编辑后仍应保持 IsConfirmed=true
+
+    if (!dbPassed)
+    {
+        Console.WriteLine($"  ✗ 失败: 数据库值不匹配");
+        Console.WriteLine($"    IssuerName: {reloaded?.IssuerName}");
+        Console.WriteLine($"    Description: {reloaded?.Description}");
+        Console.WriteLine($"    Category: {reloaded?.Category}");
+        Console.WriteLine($"    IsConfirmed: {reloaded?.IsConfirmed} (期望: True)");
+        failed++;
+    }
+    else
+    {
+        Console.WriteLine($"  ✓ 已导出发票编辑成功");
+        Console.WriteLine($"    IssuerName: {reloaded.IssuerName}");
+        Console.WriteLine($"    Description: {reloaded.Description}");
+        Console.WriteLine($"    Category: {reloaded.Category}");
+        Console.WriteLine($"    IsConfirmed: {reloaded.IsConfirmed} (保持 True)");
+        passed++;
+    }
+
+    // 验证 ItemsJson
+    var items = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<InvoiceItem>>(reloaded?.ItemsJson ?? "[]");
+    if (items != null && items.Count > 0 && items[0].Name == "品目A" && items[0].Amount == 800)
+    {
+        Console.WriteLine($"  ✓ 明细项目正确保存");
+        passed++;
+    }
+    else
+    {
+        Console.WriteLine($"  ✗ 失败: 明细项目未正确保存");
+        failed++;
+    }
+
+    await invoiceService.DeleteAsync(saved.Id);
+    Console.WriteLine();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"  ✗ 异常: {ex.Message}");
+    failed++;
+    Console.WriteLine();
+}
+
 // 总结
 Console.WriteLine("╔══════════════════════════════════════════╗");
 Console.WriteLine($"║  测试完成: {passed} 通过, {failed} 失败           ║");

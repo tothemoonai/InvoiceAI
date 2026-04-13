@@ -37,7 +37,20 @@ public class SavedInvoiceDetailDialog : ContentPage
         _vm = viewModel;
         _invoiceService = invoiceService;
         _settingsService = settingsService;
-        BackgroundColor = Color.FromArgb("#80000000");
+        BackgroundColor = ThemeManager.Background;
+        Title = "✏ 编辑发票详情";
+        
+        // 先显示加载中
+        Content = new VerticalStackLayout
+        {
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                new ActivityIndicator { IsRunning = true, Color = ThemeManager.BrandPrimary, Scale = 1.5 },
+                new Label { Text = "加载中...", FontSize = 14, TextColor = ThemeManager.TextSecondary, Margin = new Thickness(0, 8, 0, 0) }
+            }
+        };
     }
 
     protected override async void OnAppearing()
@@ -52,7 +65,7 @@ public class SavedInvoiceDetailDialog : ContentPage
         if (_invoice == null)
         {
             await DisplayAlert("错误", "发票不存在或已被删除", "OK");
-            await Navigation.PopModalAsync();
+            await Navigation.PopAsync();
             return;
         }
 
@@ -65,37 +78,81 @@ public class SavedInvoiceDetailDialog : ContentPage
             _items = [];
         }
 
-        BuildUI();
+        // 确保在主线程上更新UI
+        MainThread.BeginInvokeOnMainThread(() => BuildUI());
     }
 
     private void BuildUI()
     {
         var cardBg = ThemeManager.CardBackground;
 
+        // 使用 Grid 直接放置所有表单字段，不嵌套 Grid
+        var formGrid = new Grid
+        {
+            RowDefinitions = GenerateRows(9),
+            ColumnDefinitions = { new ColumnDefinition(100), new ColumnDefinition(new GridLength(1, GridUnitType.Star)) },
+            Padding = new Thickness(16, 12),
+            RowSpacing = 8
+        };
+
+        // 发行方
+        formGrid.Add(new Label { Text = "发行方", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 0);
+        _issuerEntry = CreateEntry(_invoice.IssuerName);
+        formGrid.Add(_issuerEntry, 1, 0);
+
+        // 登録番号
+        formGrid.Add(new Label { Text = "登録番号", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 1);
+        _regNumberEntry = CreateEntry(_invoice.RegistrationNumber);
+        formGrid.Add(_regNumberEntry, 1, 1);
+
+        // 交易日期
+        formGrid.Add(new Label { Text = "交易日期", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 2);
+        _datePicker = new DatePicker
+        {
+            Date = _invoice.TransactionDate ?? DateTime.Now,
+            Format = "yyyy-MM-dd",
+            TextColor = ThemeManager.TextPrimary,
+            FontSize = 13
+        };
+        formGrid.Add(_datePicker, 1, 2);
+
+        // 内容
+        formGrid.Add(new Label { Text = "内容", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 3);
+        _descriptionEntry = CreateEntry(_invoice.Description);
+        formGrid.Add(_descriptionEntry, 1, 3);
+
+        // 分类
+        formGrid.Add(new Label { Text = "分类", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 4);
+        _categoryPicker = CreateCategoryPicker();
+        formGrid.Add(_categoryPicker, 1, 4);
+
+        // 税抜金額
+        formGrid.Add(new Label { Text = "税抜金額", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 5);
+        _exclAmountEntry = CreateEntry(_invoice.TaxExcludedAmount?.ToString() ?? "");
+        formGrid.Add(_exclAmountEntry, 1, 5);
+
+        // 税込金額
+        formGrid.Add(new Label { Text = "税込金額", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 6);
+        _inclAmountEntry = CreateEntry(_invoice.TaxIncludedAmount?.ToString() ?? "");
+        formGrid.Add(_inclAmountEntry, 1, 6);
+
+        // 消费税額
+        formGrid.Add(new Label { Text = "消费税額", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 7);
+        _taxAmountEntry = CreateEntry(_invoice.TaxAmount?.ToString() ?? "");
+        formGrid.Add(_taxAmountEntry, 1, 7);
+
+        // 交付先
+        formGrid.Add(new Label { Text = "交付先", FontSize = 13, TextColor = ThemeManager.TextSecondary, VerticalOptions = LayoutOptions.Center }, 0, 8);
+        _recipientEntry = CreateEntry(_invoice.RecipientName);
+        formGrid.Add(_recipientEntry, 1, 8);
+
         var formCard = new Border
         {
             BackgroundColor = cardBg,
-            Padding = new Thickness(16, 12),
             StrokeShape = new RoundRectangle { CornerRadius = 8 },
             StrokeThickness = 1,
             Stroke = ThemeManager.BorderLight,
-            Content = new Grid
-            {
-                RowDefinitions = GenerateRows(9),
-                ColumnDefinitions = { new ColumnDefinition(100), new ColumnDefinition(new GridLength(1, GridUnitType.Star)) },
-                Children =
-                {
-                    BuildFormRow("发行方", _issuerEntry = CreateEntry(_invoice.IssuerName)).Row(0),
-                    BuildFormRow("登録番号", _regNumberEntry = CreateEntry(_invoice.RegistrationNumber)).Row(1),
-                    BuildFormRow("交易日期", _datePicker = new DatePicker { Date = _invoice.TransactionDate ?? DateTime.Now, Format = "yyyy-MM-dd" }).Row(2),
-                    BuildFormRow("内容", _descriptionEntry = CreateEntry(_invoice.Description)).Row(3),
-                    BuildFormRow("分类", _categoryPicker = CreateCategoryPicker()).Row(4),
-                    BuildFormRow("税抜金額", _exclAmountEntry = CreateEntry(_invoice.TaxExcludedAmount?.ToString("") ?? "")).Row(5),
-                    BuildFormRow("税込金額", _inclAmountEntry = CreateEntry(_invoice.TaxIncludedAmount?.ToString("") ?? "")).Row(6),
-                    BuildFormRow("消费税額", _taxAmountEntry = CreateEntry(_invoice.TaxAmount?.ToString("") ?? "")).Row(7),
-                    BuildFormRow("交付先", _recipientEntry = CreateEntry(_invoice.RecipientName ?? "")).Row(8)
-                }
-            }
+            Content = formGrid
         };
 
         var typeCard = new Border
@@ -167,43 +224,24 @@ public class SavedInvoiceDetailDialog : ContentPage
         saveBtn.Clicked += OnSaveClicked;
 
         var cancelBtn = new Button { Text = "✕ 取消", BackgroundColor = ThemeManager.TextSecondary, TextColor = Colors.White, FontSize = 14 };
-        cancelBtn.Clicked += async (s, e) => await Navigation.PopModalAsync();
+        cancelBtn.Clicked += async (s, e) => await Navigation.PopAsync();
 
         var deleteBtn = new Button { Text = "🗑 删除", BackgroundColor = ThemeManager.Error, TextColor = Colors.White, FontSize = 14 };
         deleteBtn.Clicked += OnDeleteClicked;
 
-        Content = new Border
+        Content = new ScrollView
         {
-            BackgroundColor = ThemeManager.Background,
-            StrokeShape = new RoundRectangle { CornerRadius = 12 },
-            StrokeThickness = 1,
-            Stroke = ThemeManager.BorderLight,
-            Margin = new Thickness(40, 30),
-            Content = new Grid
+            Content = new VerticalStackLayout
             {
-                RowDefinitions =
-                {
-                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
-                    new RowDefinition(new GridLength(1, GridUnitType.Star)),
-                    new RowDefinition(new GridLength(1, GridUnitType.Auto)),
-                    new RowDefinition(new GridLength(1, GridUnitType.Auto))
-                },
+                Spacing = 12,
+                Padding = new Thickness(16),
                 Children =
                 {
-                    new Label { Text = "✏ 编辑发票详情", FontSize = 18, FontAttributes = FontAttributes.Bold, TextColor = ThemeManager.TextPrimary, Padding = new Thickness(16, 12) }.Row(0),
-                    new ScrollView
-                    {
-                        Content = new VerticalStackLayout { Spacing = 12, Padding = new Thickness(16, 0, 16, 16), Children = { formCard, typeCard, itemsCard } }
-                    }.Row(1),
-                    _errorLabel.Row(2),
-                    new Border
-                    {
-                        BackgroundColor = ThemeManager.CardBackground,
-                        Padding = new Thickness(16, 12),
-                        StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(0, 0, 12, 12) },
-                        StrokeThickness = 0,
-                        Content = new HorizontalStackLayout { Spacing = 12, Children = { saveBtn, cancelBtn, deleteBtn } }
-                    }.Row(3)
+                    formCard,
+                    typeCard,
+                    itemsCard,
+                    _errorLabel,
+                    new HorizontalStackLayout { Spacing = 12, Children = { saveBtn, cancelBtn, deleteBtn } }
                 }
             }
         };
@@ -219,12 +257,42 @@ public class SavedInvoiceDetailDialog : ContentPage
         }
     };
 
-    private static Entry CreateEntry(string text) => new() { Text = text, FontSize = 13 };
+    private static Entry CreateEntry(string text)
+    {
+        var entry = new Entry
+        {
+            Text = text ?? string.Empty,
+            FontSize = 13,
+            TextColor = ThemeManager.TextPrimary,
+            BackgroundColor = ThemeManager.Background,
+            Placeholder = "请输入",
+            PlaceholderColor = ThemeManager.TextTertiary
+        };
+        // 确保 Entry 可见
+        entry.IsVisible = true;
+        entry.IsEnabled = true;
+        return entry;
+    }
 
     private Picker CreateCategoryPicker()
     {
         var categories = _settingsService.Settings.Categories.ToList();
-        return new Picker { ItemsSource = categories, SelectedItem = _invoice.Category, FontSize = 13 };
+        var picker = new Picker
+        {
+            ItemsSource = categories,
+            FontSize = 13,
+            TextColor = ThemeManager.TextPrimary
+        };
+        
+        // 设置选中项
+        if (!string.IsNullOrEmpty(_invoice.Category))
+        {
+            var index = categories.IndexOf(_invoice.Category);
+            if (index >= 0)
+                picker.SelectedIndex = index;
+        }
+        
+        return picker;
     }
 
     private static RowDefinitionCollection GenerateRows(int count)
@@ -265,7 +333,7 @@ public class SavedInvoiceDetailDialog : ContentPage
         {
             await _vm.UpdateInvoiceCommand.ExecuteAsync(_invoice);
             await DisplayAlert("保存成功", "发票信息已更新", "OK");
-            await Navigation.PopModalAsync();
+            await Navigation.PopAsync();
         }
         catch (Exception ex)
         {
@@ -282,7 +350,7 @@ public class SavedInvoiceDetailDialog : ContentPage
         {
             await _vm.DeleteInvoiceCommand.ExecuteAsync(new SavedInvoiceRow { Id = _invoice.Id, IssuerName = _invoice.IssuerName });
             await DisplayAlert("删除成功", "发票已删除", "OK");
-            await Navigation.PopModalAsync();
+            await Navigation.PopAsync();
         }
         catch (Exception ex)
         {
