@@ -310,6 +310,6 @@ public class SavedInvoicesWindow : ContentPage
     private async Task OpenDetailDialog(SavedInvoiceRow row)
     {
         var dialog = new SavedInvoiceDetailDialog(row.Id, _vm, _invoiceService, _settingsService);
-        await Navigation.PushModalAsync(dialog);
+        await Navigation.PushAsync(dialog);
     }
 }
