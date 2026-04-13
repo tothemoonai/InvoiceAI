@@ -25,7 +25,7 @@ public class SavedInvoicesWindow : ContentPage
         _settingsService = settingsService;
         BindingContext = viewModel;
 
-        Title = "已保存发票列表";
+        Title = "已导出发票列表";
         BackgroundColor = ThemeManager.Background;
 
         BuildUI();
@@ -148,7 +148,7 @@ public class SavedInvoicesWindow : ContentPage
                 Children =
                 {
                     new Label { Text = "📋", FontSize = 48, Opacity = 0.3 },
-                    new Label { Text = "暂无已保存的发票记录", FontSize = 16, TextColor = ThemeManager.TextSecondary }
+                    new Label { Text = "暂无已导出的发票记录", FontSize = 16, TextColor = ThemeManager.TextSecondary }
                 }
             }
         };

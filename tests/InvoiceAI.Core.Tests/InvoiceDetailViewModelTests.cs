@@ -112,7 +112,7 @@ public class InvoiceDetailViewModelTests
     }
 
     [Fact]
-    public async Task SaveAsync_MarksAsConfirmed()
+    public async Task SaveAsync_UpdatesInvoice_WithoutChangingIsConfirmed()
     {
         _invoiceMock.Setup(i => i.UpdateAsync(It.IsAny<Invoice>()))
             .Returns(Task.CompletedTask);
@@ -120,7 +120,8 @@ public class InvoiceDetailViewModelTests
         var invoice = new Invoice { Id = 1, IsConfirmed = false, IssuerName = "Test Issuer", ItemsJson = "[]" };
         vm.CurrentInvoice = invoice;
         await vm.SaveCommand.ExecuteAsync(null);
-        Assert.True(invoice.IsConfirmed);
+        // 保存后 IsConfirmed 不应改变
+        Assert.False(invoice.IsConfirmed);
         _invoiceMock.Verify(i => i.UpdateAsync(invoice), Times.Once);
     }
 

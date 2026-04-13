@@ -116,14 +116,14 @@ try
         passed++;
     }
 
-    // 验证数据库
+    // 验证数据库（注意：编辑保存不改变 IsConfirmed 和 Category）
     var reloaded = await invoiceService.GetByIdAsync(saved.Id);
     bool dbPassed = reloaded != null
         && reloaded.IssuerName == "修正済み会社"
         && reloaded.Description == "修正后的内容"
-        && reloaded.Category == "交通費"
+        && reloaded.Category == "交通費"  // 编辑时修改了 Category
         && reloaded.TaxIncludedAmount == 1200
-        && reloaded.IsConfirmed;
+        && !reloaded.IsConfirmed;  // 编辑保存不应改变 IsConfirmed
 
     if (!dbPassed)
     {
@@ -132,7 +132,7 @@ try
         Console.WriteLine($"    Description: {reloaded?.Description}");
         Console.WriteLine($"    Category: {reloaded?.Category}");
         Console.WriteLine($"    Amount: {reloaded?.TaxIncludedAmount}");
-        Console.WriteLine($"    IsConfirmed: {reloaded?.IsConfirmed}");
+        Console.WriteLine($"    IsConfirmed: {reloaded?.IsConfirmed} (期望: False)");
         failed++;
     }
     else
@@ -142,7 +142,7 @@ try
         Console.WriteLine($"    Description: {reloaded.Description}");
         Console.WriteLine($"    Category: {reloaded.Category}");
         Console.WriteLine($"    Amount: {reloaded.TaxIncludedAmount}");
-        Console.WriteLine($"    IsConfirmed: {reloaded.IsConfirmed}");
+        Console.WriteLine($"    IsConfirmed: {reloaded.IsConfirmed} (未改变，仍为 False)");
         passed++;
     }
 

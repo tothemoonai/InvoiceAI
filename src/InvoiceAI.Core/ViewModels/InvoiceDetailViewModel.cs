@@ -149,8 +149,7 @@ public partial class InvoiceDetailViewModel : ObservableObject
             _ => "#F44336"
         };
 
-        // 保存到数据库
-        CurrentInvoice.IsConfirmed = true;
+        // 保存到数据库（不改变 IsConfirmed 和 Category，只更新编辑的字段）
         await _invoiceService.UpdateAsync(CurrentInvoice);
 
         IsEditMode = false;
