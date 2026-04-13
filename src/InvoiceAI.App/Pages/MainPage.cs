@@ -220,7 +220,7 @@ public class MainPage : ContentPage
                         {
                             BuildActionButton("📥 导入", OnImportClicked, ThemeManager.BrandPrimary),
                             BuildActionButton("📤 导出", OnExportClicked, ThemeManager.Success),
-                            BuildActionButton("💾 已保存", OnSavedInvoicesClicked, Color.FromArgb("#5C6BC0")),
+                            BuildActionButton("📤 已导出", OnSavedInvoicesClicked, Color.FromArgb("#5C6BC0")),
                             BuildActionButton("⚙ 设置", OnSettingsClicked, ThemeManager.TextSecondary)
                         }
                     }.Row(2)
@@ -1558,7 +1558,7 @@ public class MainPage : ContentPage
         }
         catch (Exception ex)
         {
-            await this.DisplayAlert("错误", $"打开已保存列表失败:\n{ex.Message}", "OK");
+            await this.DisplayAlert("错误", $"打开已导出列表失败:\n{ex.Message}", "OK");
         }
     }
 
