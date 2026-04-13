@@ -43,7 +43,11 @@ public partial class ImportViewModel : ObservableObject
     private async Task ProcessFilesAsync(string[] filePaths)
     {
         var supported = _fileService.FilterSupportedFiles(filePaths);
-        if (supported.Count == 0) return;
+        if (supported.Count == 0)
+        {
+            StatusMessage = "错误：没有支持的文件格式（仅支持 JPG、PNG、PDF）";
+            return;
+        }
 
         System.Diagnostics.Debug.WriteLine($"[Import] Input files: {filePaths.Length}, supported: {supported.Count}");
         for (int i = 0; i < supported.Count; i++)
@@ -51,7 +55,10 @@ public partial class ImportViewModel : ObservableObject
 
         // Limit to MaxFiles
         if (supported.Count > MaxFiles)
+        {
             supported = supported.Take(MaxFiles).ToList();
+            StatusMessage = $"提示：最多处理 {MaxFiles} 个文件，已选择前 {MaxFiles} 个";
+        }
 
         IsProcessing = true;
         Results.Clear();
@@ -61,6 +68,10 @@ public partial class ImportViewModel : ObservableObject
 
         var totalSw = Stopwatch.StartNew();
         var originalCount = supported.Count;
+        var errorSummary = new List<string>();
+        var compressedWithFallback = new List<string>();
+        var ocrFailedCount = 0;
+        var skippedCount = 0;
 
         try
         {
@@ -68,6 +79,7 @@ public partial class ImportViewModel : ObservableObject
             // 将 PDF 拆成图片，替换 supported 列表
             var pdfArchivePath = _settingsService.Settings.InvoiceArchivePath;
             var allImages = new List<string>();
+            var pdfFailedFiles = new List<string>();
 
             for (int i = 0; i < supported.Count; i++)
             {
@@ -91,7 +103,11 @@ public partial class ImportViewModel : ObservableObject
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"[PDF] 拆分失败: {ex.Message}");
-                        ImportItems[i].Status = $"❌ PDF拆分失败: {ex.Message}";
+                        var errorMsg = $"PDF拆分失败: {ImportItems[i].FileName} - {ex.Message}";
+                        ImportItems[i].Status = $"❌ {errorMsg}";
+                        errorSummary.Add(errorMsg);
+                        pdfFailedFiles.Add(ImportItems[i].FileName);
+                        LogError(supported[i], ex);
                     }
                 }
                 else
@@ -136,7 +152,9 @@ public partial class ImportViewModel : ObservableObject
                 catch (Exception ex)
                 {
                     preparedPaths.Add(allImages[i]);
-                    ImportItems[i].Status = "压缩失败，使用原图";
+                    var warnMsg = "压缩失败，使用原图";
+                    ImportItems[i].Status = $"⚠ {warnMsg}";
+                    compressedWithFallback.Add(ImportItems[i].FileName);
                     LogError(allImages[i], ex);
                 }
             }
@@ -158,6 +176,7 @@ public partial class ImportViewModel : ObservableObject
                     {
                         ImportItems[i].Status = "⚠ 已存在（跳过）";
                         ocrResults[i] = (allImages[i], "", hash);
+                        skippedCount++;
                         continue;
                     }
 
@@ -172,18 +191,35 @@ public partial class ImportViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    ImportItems[i].Status = $"❌ OCR失败: {ex.Message}";
+                    var errorMsg = $"OCR失败: {ex.Message}";
+                    ImportItems[i].Status = $"❌ {errorMsg}";
                     ocrResults[i] = (allImages[i], "", "");
+                    errorSummary.Add($"{ImportItems[i].FileName}: {errorMsg}");
+                    ocrFailedCount++;
                     LogError(allImages[i], ex);
                 }
             }
 
             if (ocrSuccessIndices.Count == 0)
             {
-                var skippedCount = ImportItems.Count(it => it.Status.Contains("已存在"));
-                StatusMessage = skippedCount > 0
-                    ? $"所有 {skippedCount} 张图片已存在，无新发票"
-                    : "没有成功的OCR结果";
+                // 构建详细的错误摘要
+                if (skippedCount > 0 && errorSummary.Count == 0)
+                {
+                    StatusMessage = $"所有 {skippedCount} 张图片已存在，无新发票需要处理";
+                }
+                else
+                {
+                    var summary = "处理失败：";
+                    if (pdfFailedFiles.Count > 0)
+                        summary += $"PDF拆分失败 {pdfFailedFiles.Count} 个；";
+                    if (compressedWithFallback.Count > 0)
+                        summary += $"压缩失败 {compressedWithFallback.Count} 个（使用原图）；";
+                    if (ocrFailedCount > 0)
+                        summary += $"OCR失败 {ocrFailedCount} 个；";
+                    if (skippedCount > 0)
+                        summary += $"跳过 {skippedCount} 个（已存在）；";
+                    StatusMessage = summary.TrimEnd('；');
+                }
                 IsProcessing = false;
                 return;
             }
@@ -220,8 +256,12 @@ public partial class ImportViewModel : ObservableObject
                 LogError("GLM batch", ex);
                 glmResults = [];
                 foreach (var idx in ocrSuccessIndices)
-                    ImportItems[idx].Status = $"❌ AI分析失败: {ex.Message}";
-                StatusMessage = $"AI分析失败: {Results.Count}/{imageCount} 成功";
+                {
+                    var errorMsg = $"AI分析失败: {ex.Message}";
+                    ImportItems[idx].Status = $"❌ {errorMsg}";
+                    errorSummary.Add($"{ImportItems[idx].FileName}: {errorMsg}");
+                }
+                StatusMessage = $"AI分析失败: {ex.Message}";
                 IsProcessing = false;
                 return;
             }
@@ -240,10 +280,11 @@ public partial class ImportViewModel : ObservableObject
 
             // ── Map and save results ──────────────────────────────
             int glmIdx = 0;
+            int aiFailedCount = 0;
             for (int j = 0; j < ocrSuccessIndices.Count; j++)
             {
                 var idx = ocrSuccessIndices[j];
-                
+
                 // Process all GLM results for this file (single file may contain multiple invoices)
                 int invoicesForThisFile = 0;
                 while (glmIdx < glmResults.Count)
@@ -298,8 +339,35 @@ public partial class ImportViewModel : ObservableObject
 
             UpdateProgress(originalCount + imageCount, (originalCount + imageCount) * 2 + 1);
             totalSw.Stop();
+            
+            // 构建最终状态消息
             var tokenSummary = totalTokens > 0 ? $", tokens: {totalTokens}" : "";
-            StatusMessage = $"处理完成: {Results.Count}/{imageCount} 成功 (总耗时 {totalSw.ElapsedMilliseconds / 1000.0:F1}s{tokenSummary})";
+            var resultSummary = $"处理完成: {Results.Count}/{imageCount} 成功 (总耗时 {totalSw.ElapsedMilliseconds / 1000.0:F1}s{tokenSummary})";
+            
+            // 如果有错误，添加错误摘要
+            if (errorSummary.Count > 0 || compressedWithFallback.Count > 0 || skippedCount > 0)
+            {
+                var errorParts = new List<string>();
+                if (pdfFailedFiles.Count > 0)
+                    errorParts.Add($"PDF拆分失败 {pdfFailedFiles.Count} 个");
+                if (compressedWithFallback.Count > 0)
+                    errorParts.Add($"压缩失败 {compressedWithFallback.Count} 个（使用原图）");
+                if (ocrFailedCount > 0)
+                    errorParts.Add($"OCR失败 {ocrFailedCount} 个");
+                if (aiFailedCount > 0)
+                    errorParts.Add($"AI分析失败 {aiFailedCount} 个");
+                if (skippedCount > 0)
+                    errorParts.Add($"跳过 {skippedCount} 个（已存在）");
+                
+                if (errorParts.Count > 0)
+                    StatusMessage = $"{resultSummary} | 注意：{string.Join("；", errorParts)}";
+                else
+                    StatusMessage = resultSummary;
+            }
+            else
+            {
+                StatusMessage = resultSummary;
+            }
         }
         finally
         {
