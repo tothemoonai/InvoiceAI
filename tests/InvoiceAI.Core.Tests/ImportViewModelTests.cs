@@ -14,11 +14,19 @@ public class ImportViewModelTests
     private readonly Mock<IInvoiceService> _invoiceMock = new();
     private readonly Mock<IFileService> _fileMock = new();
     private readonly Mock<IAppSettingsService> _settingsMock = new();
+    private readonly Mock<IProviderFallbackManager> _fallbackMock = new();
 
     private ImportViewModel CreateVm()
     {
         _settingsMock.Setup(s => s.Settings).Returns(new AppSettings());
-        return new(_ocrMock.Object, _glmMock.Object, _invoiceMock.Object, _fileMock.Object, _settingsMock.Object);
+        var importService = new InvoiceImportService(
+            _ocrMock.Object,
+            _glmMock.Object,
+            _invoiceMock.Object,
+            _fileMock.Object,
+            _settingsMock.Object,
+            _fallbackMock.Object);
+        return new(importService, _fileMock.Object);
     }
 
     private static GlmInvoiceResponse CreateValidResponse() => new()
