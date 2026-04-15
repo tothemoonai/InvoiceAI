@@ -64,6 +64,21 @@ public partial class ImportViewModel : ObservableObject
             foreach (var inv in result.Invoices)
                 Results.Add(inv);
 
+            // Update ImportItem status based on results
+            for (int i = 0; i < ImportItems.Count; i++)
+            {
+                var item = ImportItems[i];
+                var fileWasProcessed = result.Invoices.Any(inv => inv.SourceFilePath == item.FilePath);
+                var fileHadError = result.Errors.Any(err => err.Contains(item.FileName));
+
+                if (fileWasProcessed)
+                    item.Status = "✅ 完成";
+                else if (fileHadError)
+                    item.Status = "❌ 失败";
+                else
+                    item.Status = "⏭️ 跳过";
+            }
+
             if (result.SuccessCount > 0)
             {
                 StatusMessage = $"处理完成: {result.SuccessCount}/{result.TotalImages} 成功";
