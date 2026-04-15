@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using InvoiceAI.Models.Auth;
 
 namespace InvoiceAI.Core.Services;
 
@@ -17,10 +18,10 @@ public class BaiduOcrService : IBaiduOcrService
 
     public async Task<string> RecognizeAsync(string filePath)
     {
-        var settings = _settingsService.Settings.BaiduOcr;
+        var effectiveKeys = await _settingsService.GetEffectiveApiKeysAsync();
 
-        if (string.IsNullOrWhiteSpace(settings.Token) || string.IsNullOrWhiteSpace(settings.Endpoint))
-            throw new InvalidOperationException("请先在设置中配置 PaddleOCR Token 和端点地址");
+        if (string.IsNullOrWhiteSpace(effectiveKeys.OcrToken) || string.IsNullOrWhiteSpace(effectiveKeys.OcrEndpoint))
+            throw new InvalidOperationException("请先在设置中配置 PaddleOCR Token 和端点地址，或登录以使用云端配置");
 
         var bytes = await File.ReadAllBytesAsync(filePath);
         var base64 = Convert.ToBase64String(bytes);
@@ -35,8 +36,8 @@ public class BaiduOcrService : IBaiduOcrService
             ["visualize"] = false
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, settings.Endpoint);
-        request.Headers.TryAddWithoutValidation("Authorization", $"token {settings.Token}");
+        using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.OcrEndpoint);
+        request.Headers.TryAddWithoutValidation("Authorization", $"token {effectiveKeys.OcrToken}");
         request.Content = JsonContent.Create(payload);
 
         using var response = await _httpClient.SendAsync(request);

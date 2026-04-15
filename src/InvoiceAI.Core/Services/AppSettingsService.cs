@@ -1,5 +1,6 @@
 using System.Text.Json;
 using InvoiceAI.Core.Helpers;
+using InvoiceAI.Models.Auth;
 
 namespace InvoiceAI.Core.Services;
 
@@ -16,6 +17,15 @@ public class AppSettingsService : IAppSettingsService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
     };
+
+    private readonly IAuthService? _authService;
+    private readonly ICloudKeyService? _cloudKeyService;
+
+    public AppSettingsService(IAuthService? authService = null, ICloudKeyService? cloudKeyService = null)
+    {
+        _authService = authService;
+        _cloudKeyService = cloudKeyService;
+    }
 
     public AppSettings Settings { get; private set; } = new();
 
@@ -41,5 +51,73 @@ public class AppSettingsService : IAppSettingsService
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(Settings, JsonOptions);
         await File.WriteAllTextAsync(SettingsPath, json);
+    }
+
+    public async Task<EffectiveApiKeys> GetEffectiveApiKeysAsync()
+    {
+        var authState = _authService != null ? await _authService.GetAuthStateAsync() : null;
+
+        // Try cloud keys first if authenticated
+        if (authState?.IsAuthenticated == true &&
+            authState.CloudKeysAvailable &&
+            _cloudKeyService != null)
+        {
+            try
+            {
+                var cloudKeys = await _cloudKeyService.GetCachedCloudKeysAsync();
+                if (cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys))
+                {
+                    // Map cloud keys to active provider
+                    var provider = Settings.Glm.Provider;
+
+                    // Use cloud keys for the active provider
+                    var cloudKeyConfig = GetCloudKeysForProvider(cloudKeys, provider);
+                    if (cloudKeyConfig.HasValue)
+                    {
+                        var (cloudApiKey, cloudEndpoint, cloudModel) = cloudKeyConfig.Value;
+                        return new EffectiveApiKeys
+                        {
+                            OcrToken = cloudKeys.OcrToken,
+                            OcrEndpoint = cloudKeys.OcrEndpoint,
+                            GlmApiKey = cloudApiKey,
+                            GlmEndpoint = cloudEndpoint,
+                            GlmModel = cloudModel,
+                            GlmProvider = provider,
+                            Source = "cloud",
+                            KeyVersion = cloudKeys.Version
+                        };
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through to local keys on any error
+            }
+        }
+
+        // Fallback to local configuration
+        var (localApiKey, localEndpoint, localModel, _) = Settings.Glm.GetActiveConfig();
+        return new EffectiveApiKeys
+        {
+            OcrToken = Settings.BaiduOcr.Token,
+            OcrEndpoint = Settings.BaiduOcr.Endpoint,
+            GlmApiKey = localApiKey,
+            GlmEndpoint = localEndpoint,
+            GlmModel = localModel,
+            GlmProvider = Settings.Glm.Provider,
+            Source = "local",
+            KeyVersion = 1
+        };
+    }
+
+    private (string ApiKey, string Endpoint, string Model)? GetCloudKeysForProvider(CloudKeyConfig config, string provider)
+    {
+        return provider switch
+        {
+            "nvidia" when !string.IsNullOrEmpty(config.NvidiaApiKey) => (config.NvidiaApiKey!, config.NvidiaEndpoint!, config.NvidiaModel!),
+            "cerebras" when !string.IsNullOrEmpty(config.CerebrasApiKey) => (config.CerebrasApiKey!, config.CerebrasEndpoint!, config.CerebrasModel!),
+            "zhipu" when !string.IsNullOrEmpty(config.ZhipuApiKey) => (config.ZhipuApiKey!, config.ZhipuEndpoint!, config.ZhipuModel!),
+            _ => null
+        };
     }
 }

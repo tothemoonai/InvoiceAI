@@ -4,6 +4,7 @@ public class AppSettings
 {
     public BaiduOcrSettings BaiduOcr { get; set; } = new();
     public GlmSettings Glm { get; set; } = new();
+    public SupabaseConfig Supabase { get; set; } = new();
     public string Language { get; set; } = "zh";
     
     // 主题模式 ("Auto" | "Light" | "Dark")

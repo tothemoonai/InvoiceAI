@@ -3,6 +3,7 @@ using System.Text.Json;
 using InvoiceAI.Core.Helpers;
 using InvoiceAI.Core.Prompts;
 using InvoiceAI.Models;
+using InvoiceAI.Models.Auth;
 
 namespace InvoiceAI.Core.Services;
 
@@ -51,15 +52,14 @@ public class GlmService : IGlmService
         const int maxRetries = 3;
         for (int attempt = 0; ; attempt++)
         {
-            var settings = _settingsService.Settings.Glm;
-            var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
-            var provider = settings.Provider;
+            var effectiveKeys = await _settingsService.GetEffectiveApiKeysAsync();
+            var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, provider);
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+            using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
             var jsonPayload = JsonSerializer.Serialize(requestBody);
             request.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
@@ -156,15 +156,14 @@ public class GlmService : IGlmService
         const int maxRetries = 3;
         for (int attempt = 0; ; attempt++)
         {
-            var settings = _settingsService.Settings.Glm;
-            var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
-            var provider = settings.Provider;
+            var effectiveKeys = await _settingsService.GetEffectiveApiKeysAsync();
+            var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, provider);
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+            using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
             var jsonPayload = JsonSerializer.Serialize(requestBody);
             request.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
@@ -200,15 +199,14 @@ public class GlmService : IGlmService
         const int maxRetries = 3;
         for (int attempt = 0; ; attempt++)
         {
-            var settings = _settingsService.Settings.Glm;
-            var (apiKey, endpoint, model, maxTokens) = settings.GetActiveConfig();
-            var provider = settings.Provider;
+            var effectiveKeys = await _settingsService.GetEffectiveApiKeysAsync();
+            var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildBatchUserMessage(ocrTexts), maxTokens, provider);
+                InvoicePrompt.BuildBatchUserMessage(ocrTexts), maxTokens, effectiveKeys.GlmProvider);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+            using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
             var jsonPayload = JsonSerializer.Serialize(requestBody);
             request.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
