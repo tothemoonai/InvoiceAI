@@ -227,4 +227,15 @@ public class SettingsViewModelTests
         Assert.Equal("z-ai/glm4.7", model);
         Assert.Equal(32768, maxTokens);
     }
+
+    [Fact]
+    public void GlmSettings_VerifiedProviders_DefaultsToEmptyList()
+    {
+        // Arrange & Act
+        var settings = new AppSettings();
+
+        // Assert
+        Assert.NotNull(settings.Glm.VerifiedProviders);
+        Assert.Empty(settings.Glm.VerifiedProviders);
+    }
 }
