@@ -8,6 +8,11 @@ namespace InvoiceAI.Core.Services;
 public interface IInvoiceImportService
 {
     /// <summary>
+    /// Raised when the import status changes (e.g., provider fallback).
+    /// </summary>
+    event EventHandler<string>? StatusChanged;
+
+    /// <summary>
     /// 导入文件列表（支持图片和 PDF）
     /// </summary>
     /// <param name="filePaths">文件路径列表</param>
