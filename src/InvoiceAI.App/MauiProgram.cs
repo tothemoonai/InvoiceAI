@@ -52,7 +52,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGlmService, GlmService>();
         builder.Services.AddSingleton<IInvoiceService, InvoiceService>();
         builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
-        
+        builder.Services.AddSingleton<IProviderFallbackManager, ProviderFallbackManager>();
+
         // Import Service (Core Logic)
         builder.Services.AddSingleton<IInvoiceImportService, InvoiceImportService>();
 

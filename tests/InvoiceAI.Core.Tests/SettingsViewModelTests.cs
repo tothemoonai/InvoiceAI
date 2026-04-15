@@ -261,7 +261,7 @@ public class SettingsViewModelTests
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
 
         // Act
-        await vm.TestGlmConnectionAsyncCommand.ExecuteAsync(null);
+        await vm.TestGlmConnectionCommand.ExecuteAsync(null);
 
         // Assert
         mockFallback.Verify(f => f.MarkProviderVerifiedAsync(It.IsAny<string>()), Times.Once);
