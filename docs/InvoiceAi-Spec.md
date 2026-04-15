@@ -1,8 +1,25 @@
 # InvoiceAI — 日本发票智能识别与管理系统 设计文档
 
-> 日期: 2026-04-05 (初版) | 2026-04-07 (修订 v2) | 2026-04-08 (修订 v3) | 2026-04-09 (修订 v4) | 2026-04-09 (修订 v6)
+> 日期: 2026-04-05 (初版) | 2026-04-07 (修订 v2) | 2026-04-08 (修订 v3) | 2026-04-09 (修订 v4) | 2026-04-09 (修订 v6) | **2026-04-13 (修订 v7)**
 > 状态: 已实现并验证
-> 
+>
+> **变更记录 (2026-04-13 v7)**:
+>
+> - **发票详情编辑保存功能**: 主界面发票详情面板支持编辑模式，点击"编辑"按钮进入编辑，所有字段可修改，点击"保存"后更新数据库。支持发行方、登録番号、交易日期、内容、分类、税抜金額、税込金額、消費税額、交付先、发票类型、明细项目等字段的编辑
+> - **编辑保存不改变 IsConfirmed**: 用户在主界面编辑保存发票后，`IsConfirmed` 字段保持不变，发票仍显示在主界面（未导出列表），不会自动进入已导出列表
+> - **术语统一为"已导出"**: 主界面按钮"💾 已保存"改为"📤 已导出"，窗口标题"已保存发票列表"改为"已导出发票列表"，空状态文本同步更新
+> - **已导出发票详情对话框修复**: 重构表单布局使用 `Grid.Add()` 直接添加控件，避免嵌套 Grid 导致布局问题。增强 Entry 控件可见性（添加 BackgroundColor、Placeholder、显式设置 IsVisible/IsEnabled）。使用 `PushAsync` 代替 `PushModalAsync`
+> - **导入流程错误提示增强**: 各阶段失败时提供明确的错误提示：
+>   - 无支持文件: "错误：没有支持的文件格式（仅支持 JPG、PNG、PDF）"
+>   - 超过限制: "提示：最多处理 5 个文件，已选择前 5 个"
+>   - PDF 拆分失败: "❌ PDF拆分失败: 文件名 - 错误信息"
+>   - 压缩失败: "⚠ 压缩失败，使用原图"
+>   - OCR 失败: "❌ OCR失败: 错误信息"
+>   - AI 分析失败: "❌ AI分析失败: 错误信息"
+>   - 最终状态: "处理完成: X/Y 成功 | 注意：PDF拆分失败 N 个；压缩失败 M 个（使用原图）..."
+> - **UI 滚动条优化**: 分类面板和详情面板添加 `VerticalScrollBarVisibility = ScrollBarVisibility.Always`，确保窗口变小时内容可滚动查看
+> - **详情面板布局修复**: 将 `detailContainer` 从 `VerticalStackLayout` 改为 `Grid`，使用 `RowDefinitions` 约束高度，使 `ScrollView` 正确计算并显示滚动条
+>
 > **变更记录 (2026-04-09 v6)**:
 > 
 > - **已保存发票列表管理**: 新增独立窗口（SavedInvoicesWindow）以表格形式展示已确认发票，支持分类/日期筛选、编辑详情、删除。主界面中间栏默认显示未导出发票，移除"确认"按钮、"仅显示已确认"开关、"✅"徽章
@@ -270,17 +287,24 @@ GLM 判断 invoiceType (Standard/Simplified/NonQualified) 并列出 missingField
 | ------------------- | ---------------------- | --------------------- |
 | CategoryList (左栏)   | MainViewModel          | 分类列表、数量统计、导入触发        |
 | InvoiceList (中栏)    | MainViewModel          | 发票列表、分组、选中高亮          |
-| InvoiceDetail (右栏)  | InvoiceDetailViewModel | 详情展示、适格状态、编辑/保存       |
+| InvoiceDetail (右栏)  | InvoiceDetailViewModel | 详情展示、适格状态、编辑/保存（支持只读和编辑两种模式） |
 | ImportOverlay (弹窗)  | ImportViewModel        | 文件选择 → OCR → GLM → 预览 |
 | SettingsDialog (弹窗) | SettingsViewModel      | API 密钥、语言、分类管理        |
 
 ### 导入流程
 
 1. 用户点击导入 → FilePicker (jpg/png/pdf 多选)，**也支持拖拽文件到主窗口**
-2. 进度弹窗显示处理状态 (文件名 + 进度条)
-3. 完成后中栏顶部高亮显示本次识别结果
-4. 右栏自动显示第一张识别结果
-5. 用户逐张确认/编辑分类 → 保存入库
+2. 进度弹窗显示处理状态 (文件名 + 进度条 + 各阶段状态)
+3. 各阶段错误提示：
+   - **PDF 拆分失败**: `❌ PDF拆分失败: 文件名 - 错误信息`
+   - **图片压缩失败**: `⚠ 压缩失败，使用原图`（自动回退到原图继续处理）
+   - **OCR 识别失败**: `❌ OCR失败: 错误信息`（跳过该文件，继续处理下一个）
+   - **AI 分析失败**: `❌ AI分析失败: 错误信息`（批量失败时所有文件标记为失败）
+   - **文件已存在**: `⚠ 已存在（跳过）`（根据 FileHash 去重）
+4. 完成后显示摘要：`处理完成: X/Y 成功 (总耗时 Zs) | 注意：PDF拆分失败 N 个；压缩失败 M 个（使用原图）；OCR失败 K 个；跳过 L 个（已存在）`
+5. 中栏顶部高亮显示本次识别结果
+6. 右栏自动显示第一张识别结果
+7. 用户逐张编辑分类 → 保存入库（`IsConfirmed` 不变，仍显示在主界面）
 
 ### 拖拽支持
 
@@ -291,6 +315,7 @@ GLM 判断 invoiceType (Standard/Simplified/NonQualified) 并列出 missingField
 1. 弹出导出选项: 按当前分类 / 全部 / 指定时间范围
 2. EPPlus 生成 Excel: 表头 + 数据行 + 汇总行
 3. 保存到用户选择路径
+4. 导出的发票自动设置 `IsConfirmed = true`，移入已导出列表
 
 ## 7. 设置与配置
 
@@ -339,16 +364,34 @@ API 密钥不存储在代码仓库中。
 
 ## 9. 错误处理
 
-| 场景         | 处理方式                                                                                |
-| ---------- | ----------------------------------------------------------------------------------- |
-| API 密钥未配置  | 首次启动引导到设置页，顶部提示横幅                                                                   |
-| OCR 识别失败   | 显示错误，允许重试。错误详情写入 TEMP/errorlog/import_error.log                                     |
-| GLM 返回格式异常 | ExtractJson() 尝试从 reasoning_content/content 提取 JSON，失败则记录原始响应到 glm_parse_failed.txt |
-| 网络超时       | 重试 2 次，仍失败提示检查网络                                                                    |
-| 429 限流     | 指数退避重试 (2s→4s→8s)，最多 3 次，日志记录重试过程                                                   |
-| 不支持的文件格式   | 导入时过滤，仅允许 jpg/png/pdf                                                               |
-| 重复导入       | 根据 FileHash (SHA256) 检测，提示是否覆盖                                                      |
-| 数据库迁移失败    | 启动时检查，提示修复或重建                                                                       |
+| 场景             | 处理方式                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| API 密钥未配置       | 首次启动引导到设置页，顶部提示横幅                                                                             |
+| OCR 识别失败       | 显示错误，允许重试。错误详情写入 TEMP/errorlog/import_error.log。导入流程中显示 `❌ OCR失败: 错误信息` 并跳过该文件       |
+| GLM 返回格式异常     | ExtractJson() 尝试从 reasoning_content/content 提取 JSON，失败则记录原始响应到 glm_parse_failed.txt   |
+| 网络超时           | 重试 2 次，仍失败提示检查网络                                                                              |
+| 429 限流         | 指数退避重试 (2s→4s→8s)，最多 3 次，日志记录重试过程                                                                 |
+| 不支持的文件格式        | 导入时过滤，仅允许 jpg/png/pdf。显示提示: `错误：没有支持的文件格式（仅支持 JPG、PNG、PDF）`                              |
+| 重复导入           | 根据 FileHash (SHA256) 检测，显示 `⚠ 已存在（跳过）`                                                                |
+| 数据库迁移失败         | 启动时检查，提示修复或重建                                                                                  |
+| PDF 拆分失败       | 显示 `❌ PDF拆分失败: 文件名 - 错误信息`，记录到日志，继续处理其他文件                                                        |
+| 图片压缩失败         | 显示 `⚠ 压缩失败，使用原图`，自动回退到原始图片继续 OCR 处理                                                              |
+| AI 分析失败        | 显示 `❌ AI分析失败: 错误信息`，批量失败时所有 OCR 成功的文件标记为失败                                                      |
+| 编辑保存验证失败       | 显示验证错误对话框（如: `発行事業者不能为空`），不保存到数据库                                                                  |
+| 已导出发票详情对话框为空   | 重构布局使用 `Grid.Add()` 直接添加控件，增强 Entry 可见性（BackgroundColor、Placeholder、IsVisible/IsEnabled） |
+
+### 导入流程错误提示详情
+
+导入流程各阶段失败时提供明确的错误提示，最终状态消息包含完整摘要：
+
+```
+处理完成: 3/5 成功 (总耗时 12.3s, tokens: 1234) | 注意：PDF拆分失败 1 个；压缩失败 1 个（使用原图）；OCR失败 1 个；跳过 1 个（已存在）
+```
+
+### 编辑模式错误提示
+
+- **验证错误**: 发行方不能为空时，弹出对话框显示 `発行事業者不能为空`
+- **编辑取消**: 点击取消按钮，恢复所有字段到编辑前的值
 
 ## 10. DI 注册
 
@@ -367,26 +410,26 @@ MauiProgram.cs 关键注册:
 
 ---
 
-## 11. 已保存发票列表管理
+## 11. 已导出发票列表管理
 
 ### 11.1 需求概述
 
-用户可管理已导出的发票列表（已确认发票）。主界面中间栏显示当次识别的记录和未导出的发票列表。已导出的发票自动转入已保存类别。已保存列表支持按分类、时间、导出时间筛选显示。用户可浏览并编辑发票详情，修正错误后保存。移除原有的"确认"功能。
+用户可管理已导出的发票列表（已确认发票）。主界面中间栏显示当次识别的记录和未导出的发票列表。已导出的发票自动转入已导出类别。已导出列表支持按分类、时间、导出时间筛选显示。用户可浏览并编辑发票详情，修正错误后保存。**术语统一**: 所有 "已保存" 相关文本统一改为 "已导出"。
 
 ### 11.2 整体架构
 
 ```
 主界面 (MainPage)
-├── 左栏: 分类列表 + 操作按钮（导入 / 导出 / 已保存列表 / 设置）
+├── 左栏: 分类列表 + 操作按钮（导入 / 导出 / 📤 已导出 / 设置）
 ├── 中栏: 未导出发票列表 (IsConfirmed = false)
-└── 右栏: 发票详情编辑面板
+└── 右栏: 发票详情编辑面板（支持只读和编辑两种模式）
 
-已保存列表窗口 (SavedInvoicesWindow) ← 独立 MAUI Window
+已导出列表窗口 (SavedInvoicesWindow) ← 独立 MAUI Window
 ├── 顶部工具栏: 筛选和排序控制
 ├── 中部表格区: Excel 样式的发票列表
 └── 底部状态栏: 记录计数
 
-发票详情对话框 (SavedInvoiceDetailDialog) ← 模态对话框
+发票详情对话框 (SavedInvoiceDetailDialog) ← 导航页面（PushAsync）
 ├── 基本信息区: 发行方、登録番号、日期、分类、金额等
 ├── 明細項目区: 可编辑的发票明细列表
 └── 操作按钮: 保存 / 取消 / 删除
@@ -396,27 +439,29 @@ MauiProgram.cs 关键注册:
 
 | 文件                                                        | 职责                |
 | --------------------------------------------------------- | ----------------- |
-| `src/InvoiceAI.Core/ViewModels/SavedInvoicesViewModel.cs` | 已保存列表窗口 ViewModel |
-| `src/InvoiceAI.App/Pages/SavedInvoicesWindow.cs`          | 已保存列表窗口 UI        |
-| `src/InvoiceAI.App/Pages/SavedInvoiceDetailDialog.cs`     | 发票详情编辑对话框 UI      |
+| `src/InvoiceAI.Core/ViewModels/SavedInvoicesViewModel.cs` | 已导出列表窗口 ViewModel |
+| `src/InvoiceAI.App/Pages/SavedInvoicesWindow.cs`          | 已导出列表窗口 UI（标题: "已导出发票列表"） |
+| `src/InvoiceAI.App/Pages/SavedInvoiceDetailDialog.cs`     | 发票详情编辑对话框 UI（导航页面，非模态） |
 
 ### 11.4 修改文件
 
-| 文件                                                        | 修改内容                                                             |
-| --------------------------------------------------------- | ---------------------------------------------------------------- |
-| `src/InvoiceAI.App/Pages/MainPage.cs`                     | 增加"已保存列表"按钮；移除"确认"按钮 UI；移除"仅显示已确认"开关；移除列表中的"✅"徽章；中间栏默认显示未导出发票    |
-| `src/InvoiceAI.Core/ViewModels/MainViewModel.cs`          | 增加 `OpenSavedInvoicesCommand`；移除 `ShowConfirmedOnly` 属性          |
-| `src/InvoiceAI.Core/ViewModels/InvoiceDetailViewModel.cs` | 移除 `SaveAsync`（确认）命令                                             |
-| `src/InvoiceAI.Core/Services/IInvoiceService.cs`          | 增加 `GetByCreateDateRangeAsync` 和 `GetDistinctCategoriesAsync` 方法 |
-| `src/InvoiceAI.Core/Services/InvoiceService.cs`           | 实现上述两个新方法                                                        |
-| `src/InvoiceAI.App/MauiProgram.cs`                        | 注册 `SavedInvoicesViewModel`                                      |
+| 文件                                                        | 修改内容                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `src/InvoiceAI.App/Pages/MainPage.cs`                     | 增加"📤 已导出"按钮（替代"💾 已保存"）；移除"确认"按钮 UI；移除"仅显示已确认"开关；移除列表中的"✅"徽章；中间栏默认显示未导出发票；右栏添加编辑/保存功能 |
+| `src/InvoiceAI.Core/ViewModels/MainViewModel.cs`          | 增加 `OpenSavedInvoicesCommand`；移除 `ShowConfirmedOnly` 属性                      |
+| `src/InvoiceAI.Core/ViewModels/InvoiceDetailViewModel.cs` | 添加编辑模式支持（`IsEditMode`、可编辑字段属性、`StartEditingCommand`、`SaveCommand`、`CancelEditingCommand`） |
+| `src/InvoiceAI.Core/ViewModels/ImportViewModel.cs`        | 增强各阶段错误提示，添加错误计数和最终状态摘要                                                  |
+| `src/InvoiceAI.Core/Services/IInvoiceService.cs`          | 增加 `GetByCreateDateRangeAsync` 和 `GetDistinctCategoriesAsync` 方法              |
+| `src/InvoiceAI.Core/Services/InvoiceService.cs`           | 实现上述两个新方法                                                            |
+| `src/InvoiceAI.App/MauiProgram.cs`                        | 注册 `SavedInvoicesViewModel`                                         |
 
 ### 11.5 数据流
 
-- **打开已保存列表**: 点击按钮 → 创建 SavedInvoicesWindow → LoadDataCommand → 查询 IsConfirmed=true → 表格显示
+- **打开已导出列表**: 点击"📤 已导出"按钮 → 创建 SavedInvoicesWindow → LoadDataCommand → 查询 IsConfirmed=true → 表格显示
 - **筛选数据**: 选择分类/日期范围/排序 → ApplyFilters() → 内存过滤 ObservableCollection → 刷新表格
-- **编辑发票详情**: 点击行 → 弹出 SavedInvoiceDetailDialog → 编辑 → Save → UpdateAsync → 刷新表格
+- **编辑发票详情**: 点击行 → 弹出 SavedInvoiceDetailDialog（PushAsync） → 编辑 → Save → UpdateAsync → 刷新表格
 - **删除发票**: 详情对话框中点删除 → 确认 → DeleteAsync → 移除行
+- **主界面编辑保存**: 选择发票 → 点击"✏ 编辑" → 修改字段 → 点击"💾 保存" → UpdateAsync → `IsConfirmed` 不变，仍在主界面显示
 
 ### 11.6 SavedInvoiceRow 模型
 
@@ -443,18 +488,20 @@ public class SavedInvoiceRow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  已保存发票列表                                        [─][×]│
+│  已导出发票列表                                        [─][×]│
 ├─────────────────────────────────────────────────────────────┤
 │  [分类: 全部 ▼]  [起始日期] ~ [结束日期]  [🔄刷新]          │
 │  排序: (●) 交易日期  ( ) 导出时间                           │
 ├─────────────────────────────────────────────────────────────┤
 │  日期 │ 发行方 │ 登録番号 │ 内容 │ 分类 │ 税抜 │ 税込 │ 类型 │ 导出时间 │
-│  ─────┼────────┼──────────┼──────┼──────┼──────┼──────┼─────┼─────────│
+│  ─────────────┼────────────────┼────────────┼───────────┼─────────│
 │  2026-04-01 │ XX商店 │ T12345... │ 办公用品 │ 文具 │ ¥1,100 │ 標準 │ ... │
 ├─────────────────────────────────────────────────────────────┤
 │  共 42 条记录                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**空状态提示**: `暂无已导出的发票记录`
 
 **表格列定义**:
 | 列 | 宽度 | 对齐 | 格式 |
@@ -469,15 +516,17 @@ public class SavedInvoiceRow
 | 类型 | 80px | 左 | 标准/简易/非适格 |
 | 导出时间 | 140px | 左 | yyyy-MM-dd HH:mm |
 
-### 11.8 移除的功能
+### 11.8 移除/变更的功能
 
-| 移除项                    | 位置                     | 替代方案             |
-| ---------------------- | ---------------------- | ---------------- |
-| "✅ 确认"按钮               | 详情面板顶部                 | 用户直接在详情中编辑后点"保存" |
-| "仅显示已确认"开关             | 发票列表上方                 | 已导出发票自动不在主列表显示   |
-| "✅"确认标记徽章              | 发票列表每项                 | 不需要，主列表只显示未导出    |
-| `ShowConfirmedOnly` 属性 | MainViewModel          | —                |
-| `SaveAsync` 命令         | InvoiceDetailViewModel | —                |
+| 移除/变更项                | 位置                     | 替代方案/说明                                      |
+| ---------------------- | ---------------------- | -------------------------------------------- |
+| "✅ 确认"按钮               | 详情面板顶部                 | 用户直接在详情中编辑后点"保存"（`IsConfirmed` 不变）               |
+| "仅显示已确认"开关             | 发票列表上方                 | 已导出发票自动不在主列表显示                               |
+| "✅"确认标记徽章              | 发票列表每项                 | 不需要，主列表只显示未导出                                  |
+| `ShowConfirmedOnly` 属性 | MainViewModel          | —                                            |
+| `SaveAsync` 命令         | InvoiceDetailViewModel | 变更为编辑保存模式：`StartEditingCommand` / `SaveCommand` / `CancelEditingCommand` |
+| "💾 已保存"按钮             | 主界面左栏底部                 | 改为"📤 已导出"按钮                                  |
+| SavedInvoiceDetailDialog 模态对话框 | 已导出列表窗口              | 改为导航页面（`PushAsync`），避免模态对话框导致的 UI 问题          |
 
 ---
 
@@ -497,8 +546,10 @@ public class SavedInvoiceRow
 | 4   | 发票导入  | `import`   |
 | 5   | 发票导出  | `export`   |
 | 6   | 发票删除  | `delete`   |
-| 7   | 已保存列表 | `saved`    |
+| 7   | 已导出列表 | `saved`    |
 | 8   | 编辑保存  | `edit`     |
+| 9   | ViewModel 编辑保存 | `editsave` |
+| 10  | 编辑验证  | `editvalidation` |
 
 ### 12.3 无头执行流程
 
@@ -554,16 +605,18 @@ TestRunner.Run(caseName)
 
 ### 12.6 测试用例详细设计
 
-| 测试           | 输入                 | 预期                       | 说明               |
-| ------------ | ------------------ | ------------------------ | ---------------- |
-| **load**     | 查询未确认发票            | 返回 IsConfirmed=false 的列表 | 验证默认过滤           |
-| **category** | 获取分类计数             | 返回非空字典                   | 验证分类功能           |
-| **search**   | 用第一个发票发行方名搜索       | 返回匹配结果                   | 数据库为空时 SKIP      |
-| **import**   | invoices/ 目录下的一张图片 | OCR→AI→保存→删除清理           | OCR/AI 不可用时 SKIP |
-| **export**   | 导出所有发票到临时 Excel    | 文件存在且大小 > 0              | 验证 MiniExcel     |
-| **delete**   | 创建测试发票后删除          | GetByIdAsync 返回 null     | 验证 CRUD          |
-| **saved**    | 查询已确认发票            | 返回 IsConfirmed=true 的列表  | 验证时间范围查询         |
-| **edit**     | 修改发票字段后保存重读        | 字段值正确更新                  | 验证 UpdateAsync   |
+| 测试                | 输入                 | 预期                       | 说明               |
+| ----------------- | ------------------ | ------------------------ | ---------------- |
+| **load**          | 查询未确认发票            | 返回 IsConfirmed=false 的列表 | 验证默认过滤           |
+| **category**      | 获取分类计数             | 返回非空字典                   | 验证分类功能           |
+| **search**        | 用第一个发票发行方名搜索       | 返回匹配结果                   | 数据库为空时 SKIP      |
+| **import**        | invoices/ 目录下的一张图片 | OCR→AI→保存→删除清理           | OCR/AI 不可用时 SKIP |
+| **export**        | 导出所有发票到临时 Excel    | 文件存在且大小 > 0              | 验证 MiniExcel     |
+| **delete**        | 创建测试发票后删除          | GetByIdAsync 返回 null     | 验证 CRUD          |
+| **saved**         | 查询已确认发票            | 返回 IsConfirmed=true 的列表  | 验证时间范围查询         |
+| **edit**          | 修改发票字段后保存重读        | 字段值正确更新                  | 验证 UpdateAsync   |
+| **editsave**      | ViewModel 编辑保存完整流程   | 编辑→保存→数据库更新→IsConfirmed=true | 验证编辑保存功能       |
+| **editvalidation** | 空 IssuerName 尝试保存    | ValidationError 非空，IsConfirmed=false | 验证编辑验证功能   |
 
 ### 12.7 错误处理
 
