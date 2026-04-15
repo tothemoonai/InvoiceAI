@@ -1,8 +1,12 @@
+using InvoiceAI.Core.Helpers;
 using InvoiceAI.Core.Services;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Maui;
+using Supabase;
+using SupabaseClient = Supabase.Client;
 
 namespace InvoiceAI.App;
 
@@ -45,6 +49,15 @@ public static class MauiProgram
         // HTTP client
         builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
 
+        // Supabase and auth services (registered first so AppSettingsService can inject them)
+        builder.Services.AddSingleton<SupabaseClient>(sp =>
+        {
+            var settings = sp.GetRequiredService<IAppSettingsService>();
+            return new SupabaseClient(settings.Settings.Supabase.Url, settings.Settings.Supabase.AnonKey);
+        });
+        builder.Services.AddSingleton<InvoiceAI.Core.Services.IAuthService, SupabaseAuthService>();
+        builder.Services.AddSingleton<InvoiceAI.Core.Services.ICloudKeyService, SupabaseKeyService>();
+
         // Singleton services
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
         builder.Services.AddSingleton<IFileService, FileService>();
@@ -63,6 +76,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ImportViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddSingleton<InvoiceAI.Core.ViewModels.SavedInvoicesViewModel>();
+        builder.Services.AddSingleton<AuthViewModel>();
 
         // Pages (transient)
         builder.Services.AddTransient<Pages.MainPage>();
