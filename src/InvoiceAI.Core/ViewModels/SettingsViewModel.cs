@@ -13,6 +13,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IBaiduOcrService? _ocrService;
     private readonly IGlmService? _glmService;
     private readonly HttpClient? _httpClient;
+    private readonly IProviderFallbackManager? _fallbackManager;
 
     private string _previousGlmProvider = "zhipu";
 
@@ -20,12 +21,14 @@ public partial class SettingsViewModel : ObservableObject
         IAppSettingsService settingsService,
         IBaiduOcrService? ocrService = null,
         IGlmService? glmService = null,
-        HttpClient? httpClient = null)
+        HttpClient? httpClient = null,
+        IProviderFallbackManager? fallbackManager = null)
     {
         _settingsService = settingsService;
         _ocrService = ocrService;
         _glmService = glmService;
         _httpClient = httpClient;
+        _fallbackManager = fallbackManager;
         var s = _settingsService.Settings;
         _baiduToken = s.BaiduOcr.Token;
         _baiduEndpoint = s.BaiduOcr.Endpoint;
@@ -430,7 +433,14 @@ public partial class SettingsViewModel : ObservableObject
             var body = await response.Content.ReadAsStringAsync();
 
             if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            {
                 TestResult = $"{providerName} 连接成功";
+                // Mark provider as verified when connection succeeds
+                if (_fallbackManager != null)
+                {
+                    await _fallbackManager.MarkProviderVerifiedAsync(GlmProvider);
+                }
+            }
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 TestResult = $"{providerName} API Key 无效";
             else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
