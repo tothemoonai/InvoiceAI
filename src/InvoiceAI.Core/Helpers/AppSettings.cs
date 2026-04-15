@@ -52,6 +52,9 @@ public class GlmSettings
     public static readonly (string Id, string Name)[] NvidiaModels = [
         ("deepseek-ai/deepseek-v3.1-terminus", "DeepSeek-V3.1-Terminus"),
         ("deepseek-ai/deepseek-r1", "DeepSeek-R1"),
+        ("stepfun-ai/step-3.5-flash", "Step-3.5-Flash"),
+        ("moonshotai/kimi-k2-instruct", "Kimi-K2-Instruct"),
+        ("qwen/qwen3-coder-480b-a35b-instruct", "Qwen3-Coder-480B-A35B-Instruct"),
     ];
     public static readonly (string Id, string Name)[] CerebrasModels = [
         ("qwen-3-235b-a22b-instruct-2507", "Qwen-3-235B"),
