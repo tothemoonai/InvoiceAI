@@ -32,17 +32,17 @@ public class GlmSettings
     // Zhipu (智谱)
     public string ApiKey { get; set; } = string.Empty;
     public string Endpoint { get; set; } = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-    public string Model { get; set; } = "glm-4.7";
+    public string Model { get; set; } = string.Empty; // 用户配置时设置
 
     // NVIDIA NIM
     public string NvidiaApiKey { get; set; } = string.Empty;
     public string NvidiaEndpoint { get; set; } = "https://integrate.api.nvidia.com/v1/chat/completions";
-    public string NvidiaModel { get; set; } = "deepseek-ai/deepseek-v3.1-terminus";
+    public string NvidiaModel { get; set; } = string.Empty; // 用户配置时设置
 
     // Cerebras
     public string CerebrasApiKey { get; set; } = string.Empty;
     public string CerebrasEndpoint { get; set; } = "https://api.cerebras.ai/v1/chat/completions";
-    public string CerebrasModel { get; set; } = "qwen-3-235b-a22b-instruct-2507";
+    public string CerebrasModel { get; set; } = string.Empty; // 用户配置时设置
 
     // List of providers verified by user through Settings page
     public List<string> VerifiedProviders { get; set; } = new();

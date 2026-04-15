@@ -21,9 +21,18 @@ public class AppSettingsService : IAppSettingsService
 
     public async Task LoadAsync()
     {
-        if (!File.Exists(SettingsPath)) return;
-        var json = await File.ReadAllTextAsync(SettingsPath);
-        Settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new();
+        if (File.Exists(SettingsPath))
+        {
+            var json = await File.ReadAllTextAsync(SettingsPath);
+            Settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new();
+        }
+        else
+        {
+            // 首次运行：创建默认配置文件
+            Settings = new AppSettings();
+            await SaveAsync();
+            LogHelper.Log($"已创建默认配置文件: {SettingsPath}");
+        }
     }
 
     public async Task SaveAsync()
