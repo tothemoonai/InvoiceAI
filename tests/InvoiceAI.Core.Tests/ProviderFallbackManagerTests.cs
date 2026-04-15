@@ -43,7 +43,7 @@ public class ProviderFallbackManagerTests
 
         // Assert
         Assert.Single(_testSettings.Glm.VerifiedProviders);
-        _mockSettings.Verify(s => s.SaveAsync(), Times.Once);
+        _mockSettings.Verify(s => s.SaveAsync(), Times.Never); // Should not call SaveAsync since already exists
     }
 
     [Fact]
