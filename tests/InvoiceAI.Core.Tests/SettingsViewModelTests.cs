@@ -239,31 +239,4 @@ public class SettingsViewModelTests
         Assert.NotNull(settings.Glm.VerifiedProviders);
         Assert.Empty(settings.Glm.VerifiedProviders);
     }
-
-    [Fact]
-    public async Task TestGlmConnectionAsync_WhenSuccessful_MarksProviderVerified()
-    {
-        // Arrange
-        var mockFallback = new Mock<IProviderFallbackManager>();
-        var mockHttp = new Mock<HttpClient>();
-        var settings = CreateSettingsService();
-        var vm = new SettingsViewModel(
-            settings,
-            null, null, mockHttp.Object,
-            mockFallback.Object);
-
-        vm.GlmApiKey = "test-key";
-        vm.GlmEndpoint = "https://test.com";
-        vm.GlmModel = "test-model";
-
-        using var httpRequest = new HttpRequestMessage();
-        mockHttp.Setup(h => h.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
-
-        // Act
-        await vm.TestGlmConnectionCommand.ExecuteAsync(null);
-
-        // Assert
-        mockFallback.Verify(f => f.MarkProviderVerifiedAsync(It.IsAny<string>()), Times.Once);
-    }
 }

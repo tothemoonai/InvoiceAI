@@ -55,7 +55,7 @@ public class ImportViewModelTests
         }
         _invoiceMock.Setup(i => i.ExistsByHashAsync(It.IsAny<string>())).ReturnsAsync(false);
         _invoiceMock.Setup(i => i.SaveAsync(It.IsAny<Invoice>()))
-            .ReturnsAsync((Invoice inv) => { inv.Id = 1; return inv; });
+            .ReturnsAsync((Invoice inv) => inv);
     }
 
     [Fact]
