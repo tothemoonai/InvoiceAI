@@ -52,6 +52,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGlmService, GlmService>();
         builder.Services.AddSingleton<IInvoiceService, InvoiceService>();
         builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
+        
+        // Import Service (Core Logic)
+        builder.Services.AddSingleton<IInvoiceImportService, InvoiceImportService>();
 
         // ViewModels (singleton — shared state across MainPage)
         builder.Services.AddSingleton<MainViewModel>();

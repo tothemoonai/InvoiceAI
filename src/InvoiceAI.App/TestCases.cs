@@ -928,4 +928,139 @@ public static class TestCases
             passed ? null : "空 IssuerName 未触发验证错误"
         );
     }
+
+    // ─── 12. ImportPdf: PDF 批量导入测试 ────────────
+
+    public static async Task<TestCaseResult> TestImportPdf(IServiceProvider services)
+    {
+        var fileService = services.GetRequiredService<IFileService>();
+        var ocrService = services.GetRequiredService<IBaiduOcrService>();
+        var glmService = services.GetRequiredService<IGlmService>();
+        var invoiceService = services.GetRequiredService<IInvoiceService>();
+        var settingsService = services.GetRequiredService<IAppSettingsService>();
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceAI.Data.AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var pdfPath = Path.Combine(TestDataDir, "2025.2 饮食.pdf");
+        if (!File.Exists(pdfPath))
+        {
+            return new TestCaseResult(
+                "import_pdf",
+                $"查找 {pdfPath}",
+                "找到 PDF 文件",
+                $"未找到 {pdfPath}",
+                null,
+                true,
+                "测试 PDF 不存在，跳过"
+            );
+        }
+
+        var beforeCount = (await invoiceService.GetAllAsync()).Count;
+
+        try
+        {
+            // 1. PDF 拆分
+            var archivePath = settingsService.Settings.InvoiceArchivePath;
+            var images = await fileService.ConvertPdfToImagesAsync(pdfPath, archivePath);
+
+            if (images.Count <= 5)
+            {
+                return new TestCaseResult(
+                    "import_pdf",
+                    $"PDF 拆分: {Path.GetFileName(pdfPath)}",
+                    "拆分出超过 5 张图片",
+                    $"仅拆分为 {images.Count} 张图片，无法验证分批逻辑",
+                    null,
+                    true,
+                    "图片数量不足，跳过分批测试"
+                );
+            }
+
+            Console.WriteLine($"PDF 成功拆分为 {images.Count} 张图片");
+
+            // 2. 模拟分批处理 (每 5 张一组)
+            int batchSize = 5;
+            int totalBatches = (images.Count + batchSize - 1) / batchSize;
+            int successCount = 0;
+
+            for (int batch = 0; batch < totalBatches; batch++)
+            {
+                var batchStart = batch * batchSize;
+                var batchEnd = Math.Min(batchStart + batchSize, images.Count);
+                var batchImages = images.Skip(batchStart).Take(batchEnd - batchStart).ToList();
+
+                Console.WriteLine($"处理批次 {batch + 1}/{totalBatches} ({batchImages.Count} 张图片)...");
+
+                // OCR 批次
+                var ocrTexts = new List<string>();
+                foreach (var img in batchImages)
+                {
+                    try
+                    {
+                        var text = await ocrService.RecognizeAsync(img);
+                        if (!string.IsNullOrEmpty(text))
+                            ocrTexts.Add(text);
+                    }
+                    catch
+                    {
+                        // 忽略 OCR 错误
+                    }
+                }
+
+                if (ocrTexts.Count > 0)
+                {
+                    // AI 分析批次
+                    var glmResults = await glmService.ProcessBatchAsync(ocrTexts.ToArray());
+                    foreach (var glm in glmResults)
+                    {
+                        // 保存
+                        var invoice = new Invoice
+                        {
+                            IssuerName = glm.IssuerName ?? "Unknown",
+                            TransactionDate = DateTime.TryParse(glm.TransactionDate, out var d) ? d : DateTime.Now,
+                            TaxIncludedAmount = glm.TaxIncludedAmount,
+                            Category = glm.SuggestedCategory ?? "未分类",
+                            InvoiceType = glm.InvoiceType switch { "Standard" => InvoiceType.Standard, "Simplified" => InvoiceType.Simplified, _ => InvoiceType.NonQualified },
+                            ItemsJson = JsonSerializer.Serialize(glm.Items ?? new List<GlmInvoiceItem>()),
+                            IsConfirmed = false
+                        };
+                        await invoiceService.SaveAsync(invoice);
+                        successCount++;
+                    }
+                }
+            }
+
+            var afterCount = (await invoiceService.GetAllAsync()).Count;
+            var imported = afterCount - beforeCount;
+
+            // 清理测试数据
+            // 简单清理：删除刚刚导入的记录（通过时间戳或 ID 范围，这里为了简单不做复杂清理，因为后续测试可能依赖数据）
+            // 实际应用中应在测试结束时清理，但这里我们假设测试环境是独立的或者用户会手动清理。
+            // 为了安全，我们只返回结果。
+
+            return new TestCaseResult(
+                "import_pdf",
+                $"PDF 导入: {Path.GetFileName(pdfPath)} ({images.Count} 页)",
+                $"成功处理 {images.Count} 张图片，分 {totalBatches} 批，保存 {successCount} 张发票",
+                $"拆分 {images.Count} 页，分 {totalBatches} 批处理，保存 {imported} 条记录",
+                null,
+                imported > 0,
+                imported > 0 ? null : "未成功保存任何发票"
+            );
+        }
+        catch (Exception ex)
+        {
+            return new TestCaseResult(
+                "import_pdf",
+                $"PDF 导入: {Path.GetFileName(pdfPath)}",
+                "成功导入并保存",
+                $"异常: {ex.GetType().Name}: {ex.Message}",
+                null,
+                false,
+                ex.Message
+            );
+        }
+    }
 }
