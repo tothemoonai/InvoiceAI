@@ -1,3 +1,5 @@
+using System;
+
 namespace InvoiceAI.Core.Helpers;
 
 /// <summary>
@@ -10,6 +12,25 @@ public static class LogHelper
     private static readonly Lazy<string> _logDir = new(FindLogDir);
 
     public static string LogDir => _logDir.Value;
+
+    /// <summary>
+    /// Logs a message with timestamp to the provider_fallback.log file.
+    /// Silently fails if logging encounters errors (logging should not break the app).
+    /// </summary>
+    public static void Log(string message)
+    {
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var logMessage = $"[{timestamp}] {message}";
+            var logFile = Path.Combine(LogDir, "provider_fallback.log");
+            File.AppendAllText(logFile, logMessage + Environment.NewLine);
+        }
+        catch
+        {
+            // Silently fail - logging should not break the app
+        }
+    }
 
     private static string FindLogDir()
     {
