@@ -44,6 +44,9 @@ public class GlmSettings
     public string CerebrasEndpoint { get; set; } = "https://api.cerebras.ai/v1/chat/completions";
     public string CerebrasModel { get; set; } = "qwen-3-235b-a22b-instruct-2507";
 
+    // List of providers verified by user through Settings page
+    public List<string> VerifiedProviders { get; set; } = new();
+
     // Model lists per provider
     public static readonly (string Id, string Name)[] ZhipuModels = [
         ("glm-4.7", "GLM-4.7"),
