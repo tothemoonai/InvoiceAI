@@ -19,6 +19,14 @@ public partial class ImportViewModel : ObservableObject
     {
         _importService = importService;
         _fileService = fileService;
+
+        // Subscribe to import status changes
+        _importService.StatusChanged += OnImportStatusChanged;
+    }
+
+    private void OnImportStatusChanged(object? sender, string message)
+    {
+        StatusMessage = message;
     }
 
     [ObservableProperty] private ObservableCollection<ImportItem> _importItems = [];
