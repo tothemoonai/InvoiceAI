@@ -19,75 +19,92 @@ public class InvoiceImportService : IInvoiceImportService
     private readonly IInvoiceService _invoiceService;
     private readonly IFileService _fileService;
     private readonly IAppSettingsService _settingsService;
+    private readonly IProviderFallbackManager _fallbackManager;
 
     // 每批处理的图片数量
     private const int BatchSize = 5;
+
+    public event EventHandler<string>? StatusChanged;
 
     public InvoiceImportService(
         IBaiduOcrService ocrService,
         IGlmService glmService,
         IInvoiceService invoiceService,
         IFileService fileService,
-        IAppSettingsService settingsService)
+        IAppSettingsService settingsService,
+        IProviderFallbackManager fallbackManager)
     {
         _ocrService = ocrService;
         _glmService = glmService;
         _invoiceService = invoiceService;
         _fileService = fileService;
         _settingsService = settingsService;
+        _fallbackManager = fallbackManager;
     }
+
+    private void OnStatusChanged(string message) => StatusChanged?.Invoke(this, message);
 
     public async Task<ImportResult> ImportAsync(IEnumerable<string> filePaths, Action<int, int>? onProgress = null)
     {
-        var supported = _fileService.FilterSupportedFiles(filePaths);
-        var result = new ImportResult { TotalFiles = supported.Count };
-
-        if (supported.Count == 0) return result;
-
-        var allImageItems = new List<ImageItem>();
-        var pdfFailedFiles = new List<string>();
-
-        // Phase 0: Convert PDFs to images
-        foreach (var filePath in supported)
+        var originalProvider = _settingsService.Settings.Glm.Provider;
+        try
         {
-            var ext = Path.GetExtension(filePath);
-            if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            var supported = _fileService.FilterSupportedFiles(filePaths);
+            var result = new ImportResult { TotalFiles = supported.Count };
+
+            if (supported.Count == 0) return result;
+
+            var allImageItems = new List<ImageItem>();
+            var pdfFailedFiles = new List<string>();
+
+            // Phase 0: Convert PDFs to images
+            foreach (var filePath in supported)
             {
-                try
+                var ext = Path.GetExtension(filePath);
+                if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 {
-                    var images = await _fileService.ConvertPdfToImagesAsync(filePath, _settingsService.Settings.InvoiceArchivePath);
-                    foreach (var img in images)
-                        allImageItems.Add(new ImageItem(img, Path.GetFileName(filePath)));
+                    try
+                    {
+                        var images = await _fileService.ConvertPdfToImagesAsync(filePath, _settingsService.Settings.InvoiceArchivePath);
+                        foreach (var img in images)
+                            allImageItems.Add(new ImageItem(img, Path.GetFileName(filePath)));
+                    }
+                    catch (Exception ex)
+                    {
+                        pdfFailedFiles.Add(Path.GetFileName(filePath));
+                        result.Errors.Add($"PDF 拆分失败: {Path.GetFileName(filePath)} - {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    pdfFailedFiles.Add(Path.GetFileName(filePath));
-                    result.Errors.Add($"PDF 拆分失败: {Path.GetFileName(filePath)} - {ex.Message}");
+                    allImageItems.Add(new ImageItem(filePath, Path.GetFileName(filePath)));
                 }
             }
-            else
+
+            result.TotalImages = allImageItems.Count;
+            if (result.TotalImages == 0) return result;
+
+            // Process in batches
+            int totalBatches = (result.TotalImages + BatchSize - 1) / BatchSize;
+            for (int batch = 0; batch < totalBatches; batch++)
             {
-                allImageItems.Add(new ImageItem(filePath, Path.GetFileName(filePath)));
+                onProgress?.Invoke(batch + 1, totalBatches);
+
+                var batchStart = batch * BatchSize;
+                var batchEnd = Math.Min(batchStart + BatchSize, result.TotalImages);
+                var batchItems = allImageItems.Skip(batchStart).Take(batchEnd - batchStart).ToList();
+
+                await ProcessBatchAsync(batchItems, result);
             }
+
+            return result;
         }
-
-        result.TotalImages = allImageItems.Count;
-        if (result.TotalImages == 0) return result;
-
-        // Process in batches
-        int totalBatches = (result.TotalImages + BatchSize - 1) / BatchSize;
-        for (int batch = 0; batch < totalBatches; batch++)
+        finally
         {
-            onProgress?.Invoke(batch + 1, totalBatches);
-
-            var batchStart = batch * BatchSize;
-            var batchEnd = Math.Min(batchStart + BatchSize, result.TotalImages);
-            var batchItems = allImageItems.Skip(batchStart).Take(batchEnd - batchStart).ToList();
-
-            await ProcessBatchAsync(batchItems, result);
+            // Restore original provider after import completes
+            _settingsService.Settings.Glm.Provider = originalProvider;
+            _fallbackManager.Reset();
         }
-
-        return result;
     }
 
     private async Task ProcessBatchAsync(List<ImageItem> batchItems, ImportResult result)
@@ -134,16 +151,83 @@ public class InvoiceImportService : IInvoiceImportService
 
         if (ocrSuccessIndices.Count == 0) return;
 
-        // Phase 3: GLM AI
+        // Phase 3: GLM AI — with fallback logic
         var ocrTexts = ocrSuccessIndices.Select(i => ocrResults[i].Text).ToArray();
-        List<GlmInvoiceResponse> glmResults;
+        List<GlmInvoiceResponse>? glmResults = null;
+
+        var currentProvider = _settingsService.Settings.Glm.Provider;
+
         try
         {
             glmResults = await _glmService.ProcessBatchAsync(ocrTexts);
+
+            // Validate response
+            if (glmResults == null || glmResults.Count == 0)
+                throw new InvalidOperationException("GLM 返回结果为空");
+
+            var allFailed = glmResults.All(r => r.MissingFields?.Count > 5);
+            if (allFailed)
+                throw new InvalidOperationException("GLM 返回结果全部标记为缺失字段");
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return;
+            // Try fallback to next verified provider
+            var nextProvider = _fallbackManager.TryGetNextProvider(currentProvider, ex.Message);
+            if (nextProvider != null)
+            {
+                _settingsService.Settings.Glm.Provider = nextProvider;
+                OnStatusChanged($"当前提供商连接失败，已切换到 {GetProviderDisplayName(nextProvider)} 继续处理");
+
+                try
+                {
+                    glmResults = await _glmService.ProcessBatchAsync(ocrTexts);
+                    if (glmResults == null || glmResults.Count == 0)
+                        throw new InvalidOperationException("切换提供商后 GLM 返回结果仍为空");
+                }
+                catch (Exception retryEx)
+                {
+                    HandleFallbackFailure(batchItems, result, retryEx);
+                    return;
+                }
+            }
+            else
+            {
+                HandleFallbackFailure(batchItems, result, ex);
+                return;
+            }
+        }
+
+        // Phase 4: Save and Archive (only if we have valid results)
+        if (glmResults != null)
+        {
+            // Map GLM results to OCR results (1-to-1 mapping for simplicity and correctness)
+            for (int j = 0; j < ocrSuccessIndices.Count && j < glmResults.Count; j++)
+            {
+                var idx = ocrSuccessIndices[j];
+                var glm = glmResults[j];
+                var (_, ocrText, hash) = ocrResults[idx];
+                var sourceFile = batchPaths[idx];
+
+                var invoice = MapToInvoice(glm, ocrText, sourceFile, hash);
+                invoice = await _invoiceService.SaveAsync(invoice);
+                result.Invoices.Add(invoice);
+                result.SuccessCount++;
+
+                // Archive
+                if (!string.IsNullOrWhiteSpace(_settingsService.Settings.InvoiceArchivePath))
+                {
+                    try
+                    {
+                        await _fileService.CopyToInvoiceArchiveAsync(
+                            sourceFile,
+                            _settingsService.Settings.InvoiceArchivePath,
+                            invoice.Category,
+                            invoice.IssuerName,
+                            invoice.TransactionDate);
+                    }
+                    catch { }
+                }
+            }
         }
 
         // Phase 4: Save and Archive
@@ -199,6 +283,23 @@ public class InvoiceImportService : IInvoiceImportService
             IsConfirmed = false
         };
     }
+
+    private void HandleFallbackFailure(List<ImageItem> batchItems, ImportResult result, Exception ex)
+    {
+        foreach (var item in batchItems)
+        {
+            result.Errors.Add($"AI 分析失败（所有可用提供商均已失败）: {item.FilePath}");
+        }
+        OnStatusChanged("所有已验证提供商均失败，请检查网络连接或提供商设置");
+    }
+
+    private static string GetProviderDisplayName(string providerId) => providerId switch
+    {
+        "zhipu" => "智谱 (Zhipu)",
+        "nvidia" => "NVIDIA NIM",
+        "cerebras" => "Cerebras",
+        _ => providerId
+    };
 
     private class ImageItem
     {
