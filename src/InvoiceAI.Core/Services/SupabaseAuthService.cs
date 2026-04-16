@@ -73,6 +73,77 @@ public class SupabaseAuthService : IAuthService
         }
     }
 
+    public async Task<AuthResult> SignUpAsync(string email, string password)
+    {
+        try
+        {
+            // Step 1: Sign up with Supabase Auth
+            var session = await _supabaseClient.Auth.SignUp(email, password);
+
+            if (session?.User == null)
+            {
+                return new AuthResult { Success = false, ErrorMessage = "注册失败" };
+            }
+
+            var userId = session.User.Id;
+
+            // Step 2: Insert into user_groups table with group_id = "1" (auto-assignment)
+            try
+            {
+                var userGroupEntry = new user_groups_row
+                {
+                    user_id = userId,
+                    group_id = "1" // Auto-assign to group 1
+                };
+
+                await _supabaseClient.From<user_groups_row>().Insert(userGroupEntry);
+                AuthAuditLogger.LogSignUp(email, "1", true);
+            }
+            catch (Exception ex)
+            {
+                // User was created but group assignment failed
+                AuthAuditLogger.LogSignUp(email, null, false);
+                return new AuthResult
+                {
+                    Success = false,
+                    ErrorMessage = $"账号创建成功，但用户组分配失败: {ex.Message}"
+                };
+            }
+
+            // Step 3: Fetch cloud keys to verify they exist for group "1"
+            var cloudKeys = _cloudKeyService != null
+                ? await _cloudKeyService.GetCloudKeysAsync("1")
+                : null;
+
+            var hasCloudKeys = cloudKeys != null && _cloudKeyService!.IsCloudKeyValid(cloudKeys);
+
+            // Step 4: Update auth state
+            var newState = new AuthState
+            {
+                IsAuthenticated = true,
+                UserEmail = session.User.Email,
+                UserGroup = "1",
+                CloudKeysAvailable = hasCloudKeys,
+                IsUsingCloudKeys = hasCloudKeys,
+                ActiveCloudProvider = hasCloudKeys ? GetFirstAvailableProvider(cloudKeys!) : null
+            };
+
+            await UpdateAuthStateAsync(newState);
+
+            return new AuthResult
+            {
+                Success = true,
+                UserEmail = session.User.Email,
+                UserGroup = "1"
+            };
+        }
+        catch (Exception ex)
+        {
+            AuthAuditLogger.LogSignUp(email, null, false);
+            return new AuthResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
     public async Task SignOutAsync()
     {
         try

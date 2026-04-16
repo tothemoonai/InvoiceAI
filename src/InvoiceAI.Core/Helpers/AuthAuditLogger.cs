@@ -19,6 +19,12 @@ public static class AuthAuditLogger
         WriteEntry(entry);
     }
 
+    public static void LogSignUp(string email, string? group, bool success)
+    {
+        var entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] SIGNUP | Email={email} | Group={group} | Success={success}";
+        WriteEntry(entry);
+    }
+
     public static void LogLogout(string email)
     {
         var entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] LOGOUT | Email={email}";

@@ -66,6 +66,43 @@ public partial class AuthViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task SignUpAsync(string credentials)
+    {
+        var parts = credentials.Split(':', 2);
+        if (parts.Length != 2)
+        {
+            AuthState = new AuthState { ErrorMessage = "请输入邮箱和密码" };
+            return;
+        }
+
+        var email = parts[0];
+        var password = parts[1];
+
+        var result = await _authService.SignUpAsync(email, password);
+
+        if (result.Success)
+        {
+            // Fetch cloud keys after successful registration
+            if (!string.IsNullOrEmpty(result.UserGroup))
+            {
+                var cloudKeys = await _cloudKeyService.GetCloudKeysAsync(result.UserGroup);
+                var state = await _authService.GetAuthStateAsync();
+                state.CloudKeysAvailable = cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys);
+                if (cloudKeys != null)
+                {
+                    state.ActiveCloudProvider = GetFirstAvailableProvider(cloudKeys);
+                    state.IsUsingCloudKeys = true;
+                }
+                AuthState = state;
+            }
+        }
+        else
+        {
+            AuthState = new AuthState { ErrorMessage = result.ErrorMessage };
+        }
+    }
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         await _authService.SignOutAsync();

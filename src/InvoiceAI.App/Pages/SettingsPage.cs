@@ -656,16 +656,32 @@ public class SettingsPage : ContentPage
                     FontSize = 12,
                     TextColor = ThemeManager.TextTertiary
                 },
-                new Button
+                new HorizontalStackLayout
                 {
-                    Text = "登录...",
-                    BackgroundColor = ThemeManager.BrandPrimary,
-                    TextColor = Colors.White,
-                    FontSize = 14,
+                    Spacing = 8,
                     HorizontalOptions = LayoutOptions.End,
-                    MinimumHeightRequest = 36
+                    Children =
+                    {
+                        new Button
+                        {
+                            Text = "注册...",
+                            BackgroundColor = Color.FromArgb("#1976D2"),
+                            TextColor = Colors.White,
+                            FontSize = 14,
+                            MinimumHeightRequest = 36
+                        }
+                        .Invoke(btn => btn.Clicked += OnSignUpClicked),
+                        new Button
+                        {
+                            Text = "登录...",
+                            BackgroundColor = ThemeManager.BrandPrimary,
+                            TextColor = Colors.White,
+                            FontSize = 14,
+                            MinimumHeightRequest = 36
+                        }
+                        .Invoke(btn => btn.Clicked += OnLoginClicked)
+                    }
                 }
-                .Invoke(btn => btn.Clicked += OnLoginClicked)
             }
         };
 
@@ -791,6 +807,84 @@ public class SettingsPage : ContentPage
             else
             {
                 errorLabel.Text = _authVm.AuthState.ErrorMessage ?? "登录失败";
+            }
+        };
+
+        cancelButton.Clicked += async (s, e) => await Navigation.PopModalAsync();
+
+        _authVm.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AuthViewModel.AuthState))
+            {
+                if (_authVm.AuthState.ErrorMessage != null)
+                {
+                    errorLabel.Text = _authVm.AuthState.ErrorMessage;
+                }
+            }
+        };
+
+        await Navigation.PushModalAsync(new NavigationPage(page));
+    }
+
+    private async void OnSignUpClicked(object? sender, EventArgs e)
+    {
+        var emailEntry = new Entry { Placeholder = "电子邮箱", Margin = new Thickness(0, 0, 0, 8) };
+        var passwordEntry = new Entry { Placeholder = "密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
+        var confirmPasswordEntry = new Entry { Placeholder = "确认密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
+        var errorLabel = new Label { TextColor = Colors.Red, Margin = new Thickness(0, 0, 0, 8) };
+
+        var signUpButton = new Button { Text = "注册", Margin = new Thickness(0, 0, 8, 0) };
+        var cancelButton = new Button { Text = "取消" };
+
+        var content = new VerticalStackLayout
+        {
+            Padding = 20,
+            Spacing = 8,
+            Children = { emailEntry, passwordEntry, confirmPasswordEntry, errorLabel }
+        };
+
+        var buttons = new HorizontalStackLayout { Spacing = 8, Children = { signUpButton, cancelButton } };
+        content.Children.Add(buttons);
+
+        var page = new ContentPage
+        {
+            Title = "用户注册",
+            Content = content,
+            BackgroundColor = ThemeManager.Background
+        };
+
+        signUpButton.Clicked += async (s, e) =>
+        {
+            if (string.IsNullOrWhiteSpace(emailEntry.Text) ||
+                string.IsNullOrWhiteSpace(passwordEntry.Text) ||
+                string.IsNullOrWhiteSpace(confirmPasswordEntry.Text))
+            {
+                errorLabel.Text = "请填写所有字段";
+                return;
+            }
+
+            if (passwordEntry.Text != confirmPasswordEntry.Text)
+            {
+                errorLabel.Text = "两次输入的密码不一致";
+                return;
+            }
+
+            if (passwordEntry.Text.Length < 6)
+            {
+                errorLabel.Text = "密码至少需要6个字符";
+                return;
+            }
+
+            var credentials = $"{emailEntry.Text}:{passwordEntry.Text}";
+            await _authVm.SignUpCommand.ExecuteAsync(credentials);
+
+            if (_authVm.AuthState.IsAuthenticated)
+            {
+                await Navigation.PopModalAsync();
+            }
+            else
+            {
+                errorLabel.Text = _authVm.AuthState.ErrorMessage ?? "注册失败";
             }
         };
 
