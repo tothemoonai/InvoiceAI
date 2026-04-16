@@ -50,8 +50,8 @@ public static class MauiProgram
         builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
 
         // Supabase configuration (server-side, not exposed to users)
-        const string SupabaseUrl = "https://your-project.supabase.co"; // TODO: Replace with actual URL
-        const string SupabasePublishableKey = "your-publishable-key-here"; // TODO: Replace with actual key
+        const string SupabaseUrl = "https://oqggacxavkbelplpfaur.supabase.co";
+        const string SupabasePublishableKey = "sb_publishable_ubCAnJpIczTZSjBeopAmOQ_E0SYGlIj";
 
         // Supabase and auth services
         builder.Services.AddSingleton<SupabaseClient>(_ => new SupabaseClient(SupabaseUrl, SupabasePublishableKey));
