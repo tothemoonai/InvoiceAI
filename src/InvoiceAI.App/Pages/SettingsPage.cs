@@ -844,56 +844,18 @@ public class SettingsPage : ContentPage
             {
                 new Label
                 {
-                    Text = "📧 注册说明",
-                    FontSize = 14,
+                    Text = "创建新账号",
+                    FontSize = 16,
                     FontAttributes = FontAttributes.Bold,
-                    TextColor = ThemeManager.TextPrimary
+                    TextColor = ThemeManager.TextPrimary,
+                    Margin = new Thickness(0, 0, 0, 12)
                 },
-                new Border
+                new Label
                 {
-                    StrokeShape = new RoundRectangle { CornerRadius = 6 },
-                    StrokeThickness = 1,
-                    Stroke = Color.FromArgb("#FFA000"),
-                    BackgroundColor = Color.FromArgb("#FFF8E1"),
-                    Padding = new Thickness(12, 8),
-                    Content = new VerticalStackLayout
-                    {
-                        Spacing = 4,
-                        Children =
-                        {
-                            new Label
-                            {
-                                Text = "注册后需要确认邮箱才能完成注册：",
-                                FontSize = 12,
-                                TextColor = ThemeManager.TextPrimary
-                            },
-                            new Label
-                            {
-                                Text = "1. 点击「注册」按钮",
-                                FontSize = 11,
-                                TextColor = ThemeManager.TextSecondary
-                            },
-                            new Label
-                            {
-                                Text = "2. 查收邮箱中的确认邮件",
-                                FontSize = 11,
-                                TextColor = ThemeManager.TextSecondary
-                            },
-                            new Label
-                            {
-                                Text = "3. 点击邮件中的「Confirm your mail」链接",
-                                FontSize = 11,
-                                TextColor = ThemeManager.TextSecondary
-                            },
-                            new Label
-                            {
-                                Text = "4. 返回应用登录",
-                                FontSize = 11,
-                                TextColor = ThemeManager.Info,
-                                FontAttributes = FontAttributes.Bold
-                            }
-                        }
-                    }
+                    Text = "注册后将自动分配到用户组 1，并可使用云端 API 密钥",
+                    FontSize = 13,
+                    TextColor = ThemeManager.TextSecondary,
+                    Margin = new Thickness(0, 0, 0, 16)
                 },
                 emailEntry,
                 passwordEntry,
@@ -941,40 +903,19 @@ public class SettingsPage : ContentPage
             var credentials = $"{emailEntry.Text}:{passwordEntry.Text}";
             await _authVm.SignUpCommand.ExecuteAsync(credentials);
 
+            // Close dialog on success (user is now logged in)
             if (_authVm.AuthState.IsAuthenticated)
             {
                 await Navigation.PopModalAsync();
             }
             else
             {
+                // Show error message
                 var errorMsg = _authVm.AuthState.ErrorMessage ?? "注册失败";
-
-                // Check if this is an email confirmation required case
-                if (errorMsg.Contains("查收邮件") || errorMsg.Contains("确认链接") ||
-                    _authVm.AuthState.UserEmail != null)
-                {
-                    // Registration succeeded but email confirmation is required
-                    errorLabel.TextColor = Colors.Green;
-                    errorLabel.Text = $"✓ {errorMsg}";
-                    signUpButton.Text = "完成";
-
-                    await Task.Delay(2000);
-                    await Navigation.PopModalAsync();
-
-                    // Show success dialog with clear instructions
-                    await Application.Current?.Windows[0].Page?.DisplayAlert(
-                        "注册成功",
-                        $"{errorMsg}\n\n用户组已自动分配：组 1\n\n完成邮件确认后，请使用注册的邮箱和密码登录。",
-                        "确定"
-                    );
-                }
-                else
-                {
-                    errorLabel.TextColor = Colors.Red;
-                    errorLabel.Text = errorMsg;
-                    signUpButton.IsEnabled = true;
-                    signUpButton.Text = "注册";
-                }
+                errorLabel.TextColor = Colors.Red;
+                errorLabel.Text = errorMsg;
+                signUpButton.IsEnabled = true;
+                signUpButton.Text = "注册";
             }
         };
 

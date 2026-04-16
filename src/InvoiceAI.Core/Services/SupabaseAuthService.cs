@@ -77,8 +77,8 @@ public class SupabaseAuthService : IAuthService
     {
         try
         {
-            // Step 1: Sign up with Supabase Auth
-            // Note: Database trigger will automatically insert user_groups record with group_id = "1"
+            // Sign up with Supabase Auth
+            // Database trigger will automatically insert user_groups record with group_id = "1"
             var session = await _supabaseClient.Auth.SignUp(email, password);
 
             if (session?.User == null)
@@ -86,36 +86,17 @@ public class SupabaseAuthService : IAuthService
                 return new AuthResult { Success = false, ErrorMessage = "注册失败" };
             }
 
-            var userId = session.User.Id;
-
-            // Check if email confirmation is required (session might not have access token)
-            bool emailConfirmationRequired = string.IsNullOrEmpty(session.AccessToken);
-
-            // Step 2: Log the signup (user_groups is handled by database trigger)
+            // Log the signup (user_groups is handled by database trigger)
             AuthAuditLogger.LogSignUp(email, "1", true);
 
-            // Step 3: Handle email confirmation case
-            if (emailConfirmationRequired)
-            {
-                // User created but email confirmation required
-                // Database trigger has already created user_groups record
-                return new AuthResult
-                {
-                    Success = false,
-                    UserEmail = session.User.Email,
-                    UserGroup = "1",
-                    ErrorMessage = "注册成功！请查收邮件并点击确认链接，然后返回应用登录。"
-                };
-            }
-
-            // Step 4: Fetch cloud keys to verify they exist for group "1"
+            // Fetch cloud keys for group "1"
             var cloudKeys = _cloudKeyService != null
                 ? await _cloudKeyService.GetCloudKeysAsync("1")
                 : null;
 
             var hasCloudKeys = cloudKeys != null && _cloudKeyService!.IsCloudKeyValid(cloudKeys);
 
-            // Step 5: Update auth state (for immediate login without email confirmation)
+            // Update auth state
             var newState = new AuthState
             {
                 IsAuthenticated = true,
