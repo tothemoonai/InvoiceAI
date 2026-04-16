@@ -49,12 +49,12 @@ public static class MauiProgram
         // HTTP client
         builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
 
-        // Supabase and auth services (registered first so AppSettingsService can inject them)
-        builder.Services.AddSingleton<SupabaseClient>(sp =>
-        {
-            var settings = sp.GetRequiredService<IAppSettingsService>();
-            return new SupabaseClient(settings.Settings.Supabase.Url, settings.Settings.Supabase.AnonKey);
-        });
+        // Supabase configuration (server-side, not exposed to users)
+        const string SupabaseUrl = "https://your-project.supabase.co"; // TODO: Replace with actual URL
+        const string SupabasePublishableKey = "your-publishable-key-here"; // TODO: Replace with actual key
+
+        // Supabase and auth services
+        builder.Services.AddSingleton<SupabaseClient>(_ => new SupabaseClient(SupabaseUrl, SupabasePublishableKey));
         builder.Services.AddSingleton<InvoiceAI.Core.Services.IAuthService, SupabaseAuthService>();
         builder.Services.AddSingleton<InvoiceAI.Core.Services.ICloudKeyService, SupabaseKeyService>();
 
