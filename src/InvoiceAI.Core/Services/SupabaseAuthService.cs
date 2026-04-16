@@ -78,6 +78,7 @@ public class SupabaseAuthService : IAuthService
         try
         {
             // Step 1: Sign up with Supabase Auth
+            // Note: Database trigger will automatically insert user_groups record with group_id = "1"
             var session = await _supabaseClient.Auth.SignUp(email, password);
 
             if (session?.User == null)
@@ -87,37 +88,34 @@ public class SupabaseAuthService : IAuthService
 
             var userId = session.User.Id;
 
-            // Step 2: Insert into user_groups table with group_id = "1" (auto-assignment)
-            try
-            {
-                var userGroupEntry = new user_groups_row
-                {
-                    user_id = userId,
-                    group_id = "1" // Auto-assign to group 1
-                };
+            // Check if email confirmation is required (session might not have access token)
+            bool emailConfirmationRequired = string.IsNullOrEmpty(session.AccessToken);
 
-                await _supabaseClient.From<user_groups_row>().Insert(userGroupEntry);
-                AuthAuditLogger.LogSignUp(email, "1", true);
-            }
-            catch (Exception ex)
+            // Step 2: Log the signup (user_groups is handled by database trigger)
+            AuthAuditLogger.LogSignUp(email, "1", true);
+
+            // Step 3: Handle email confirmation case
+            if (emailConfirmationRequired)
             {
-                // User was created but group assignment failed
-                AuthAuditLogger.LogSignUp(email, null, false);
+                // User created but email confirmation required
+                // Database trigger has already created user_groups record
                 return new AuthResult
                 {
                     Success = false,
-                    ErrorMessage = $"账号创建成功，但用户组分配失败: {ex.Message}"
+                    UserEmail = session.User.Email,
+                    UserGroup = "1",
+                    ErrorMessage = "注册成功！请查收邮件并点击确认链接，然后返回应用登录。"
                 };
             }
 
-            // Step 3: Fetch cloud keys to verify they exist for group "1"
+            // Step 4: Fetch cloud keys to verify they exist for group "1"
             var cloudKeys = _cloudKeyService != null
                 ? await _cloudKeyService.GetCloudKeysAsync("1")
                 : null;
 
             var hasCloudKeys = cloudKeys != null && _cloudKeyService!.IsCloudKeyValid(cloudKeys);
 
-            // Step 4: Update auth state
+            // Step 5: Update auth state (for immediate login without email confirmation)
             var newState = new AuthState
             {
                 IsAuthenticated = true,
