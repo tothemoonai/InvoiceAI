@@ -2,6 +2,7 @@ using CommunityToolkit.Maui.Markup;
 using CommunityToolkit.Mvvm.Input;
 using InvoiceAI.App.Utils;
 using InvoiceAI.Core.ViewModels;
+using InvoiceAI.Models.Auth;
 using Microsoft.Maui.Controls.Shapes;
 
 namespace InvoiceAI.App.Pages;
@@ -9,13 +10,16 @@ namespace InvoiceAI.App.Pages;
 public class SettingsPage : ContentPage
 {
     private readonly SettingsViewModel _vm;
+    private readonly AuthViewModel _authVm;
     private Label _ocrTestResult = null!;
     private Label _glmTestResult = null!;
     private Label _saveResult = null!;
+    private ContentView _accountContentView = null!;
 
-    public SettingsPage(SettingsViewModel viewModel)
+    public SettingsPage(SettingsViewModel viewModel, AuthViewModel authViewModel)
     {
         _vm = viewModel;
+        _authVm = authViewModel;
         BindingContext = viewModel;
 
         Title = "设置";
@@ -64,6 +68,9 @@ public class SettingsPage : ContentPage
                 Spacing = 16,
                 Children =
                 {
+                    // ─── Account Section ─────────────────────────────
+                    BuildAccountSection(),
+
                     // ─── PaddleOCR Settings ──────────────────────
                     BuildSectionHeader("PaddleOCR 设置"),
                     BuildEntryField("Token", nameof(_vm.BaiduToken), "PaddleOCR Token"),
@@ -582,6 +589,227 @@ public class SettingsPage : ContentPage
         };
     }
 
+    // ─── Account Section ───────────────────────────────────────
+
+    private View BuildAccountSection()
+    {
+        var statusIndicator = new Label
+        {
+            FontSize = 11,
+        }.Bind(Label.TextProperty, nameof(_authVm.AuthState.IsUsingCloudKeys));
+
+        var accountSection = new Border
+        {
+            StrokeShape = new RoundRectangle { CornerRadius = 8 },
+            StrokeThickness = 1,
+            Stroke = ThemeManager.BorderLight,
+            BackgroundColor = ThemeManager.CardBackground,
+            Padding = new Thickness(16, 12),
+            Content = new VerticalStackLayout
+            {
+                Spacing = 12,
+                Children =
+                {
+                    new HorizontalStackLayout
+                    {
+                        Spacing = 8,
+                        Children =
+                        {
+                            new Label { Text = "👤", FontSize = 18 },
+                            new Label
+                            {
+                                Text = "账户",
+                                FontSize = 16,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = ThemeManager.TextPrimary,
+                                VerticalOptions = LayoutOptions.Center
+                            },
+                            statusIndicator
+                        }
+                    },
+                    new BoxView { Color = ThemeManager.BorderLight, HeightRequest = 1, Margin = new Thickness(0, 4) },
+                    BuildAccountContent()
+                }
+            }
+        };
+
+        return accountSection;
+    }
+
+    private View BuildAccountContent()
+    {
+        // Not logged in view
+        var notLoggedInView = new VerticalStackLayout
+        {
+            Spacing = 8,
+            Children =
+            {
+                new Label
+                {
+                    Text = "登录后可使用云端 API Key，无需手动配置",
+                    FontSize = 13,
+                    TextColor = ThemeManager.TextSecondary
+                },
+                new Label
+                {
+                    Text = "云端 Key 优先于本地配置使用",
+                    FontSize = 12,
+                    TextColor = ThemeManager.TextTertiary
+                },
+                new Button
+                {
+                    Text = "登录...",
+                    BackgroundColor = ThemeManager.BrandPrimary,
+                    TextColor = Colors.White,
+                    FontSize = 14,
+                    HorizontalOptions = LayoutOptions.End,
+                    MinimumHeightRequest = 36
+                }
+                .Invoke(btn => btn.Clicked += OnLoginClicked)
+            }
+        };
+
+        // Logged in view - displays user email and status
+        var loggedInView = new VerticalStackLayout
+        {
+            Spacing = 8,
+            Children =
+            {
+                new Label
+                {
+                    Text = "👤",
+                    FontSize = 14,
+                    TextColor = ThemeManager.TextPrimary
+                },
+                new Label
+                {
+                    FontSize = 13,
+                    TextColor = ThemeManager.TextPrimary
+                }.Bind(Label.TextProperty, nameof(_authVm.AuthState.UserEmail)),
+                new Label
+                {
+                    Text = "🏷️ 用户组: ",
+                    FontSize = 13,
+                    TextColor = ThemeManager.TextPrimary
+                },
+                new Label
+                {
+                    FontSize = 13,
+                    TextColor = ThemeManager.TextPrimary
+                }.Bind(Label.TextProperty, nameof(_authVm.AuthState.UserGroup)),
+                new Label
+                {
+                    Text = "✅ 云端 API Key 已激活",
+                    FontSize = 12,
+                    TextColor = ThemeManager.Success
+                },
+                new Label
+                {
+                    Text = "🔄 当前使用: 云端配置",
+                    FontSize = 12,
+                    TextColor = ThemeManager.Info
+                },
+                new Button
+                {
+                    Text = "登出",
+                    BackgroundColor = ThemeManager.TextSecondary,
+                    TextColor = Colors.White,
+                    FontSize = 14,
+                    HorizontalOptions = LayoutOptions.End,
+                    MinimumHeightRequest = 36
+                }
+                .Invoke(btn => btn.Clicked += async (s, e) => await _authVm.LogoutCommand.ExecuteAsync(null))
+            }
+        };
+
+        // Store content view for dynamic updates
+        _accountContentView = new ContentView { Content = notLoggedInView };
+
+        // Subscribe to auth state changes for dynamic view switching
+        _authVm.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(_authVm.AuthState))
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    _accountContentView.Content = _authVm.AuthState.IsAuthenticated
+                        ? loggedInView
+                        : notLoggedInView;
+                });
+            }
+        };
+
+        // Set initial content
+        _accountContentView.Content = _authVm.AuthState.IsAuthenticated
+            ? loggedInView
+            : notLoggedInView;
+
+        return _accountContentView;
+    }
+
+    private async void OnLoginClicked(object? sender, EventArgs e)
+    {
+        var emailEntry = new Entry { Placeholder = "电子邮箱", Margin = new Thickness(0, 0, 0, 8) };
+        var passwordEntry = new Entry { Placeholder = "密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
+        var errorLabel = new Label { TextColor = Colors.Red, Margin = new Thickness(0, 0, 0, 8) };
+
+        var loginButton = new Button { Text = "登录", Margin = new Thickness(0, 0, 8, 0) };
+        var cancelButton = new Button { Text = "取消" };
+
+        var content = new VerticalStackLayout
+        {
+            Padding = 20,
+            Spacing = 8,
+            Children = { emailEntry, passwordEntry, errorLabel }
+        };
+
+        var buttons = new HorizontalStackLayout { Spacing = 8, Children = { loginButton, cancelButton } };
+        content.Children.Add(buttons);
+
+        var page = new ContentPage
+        {
+            Title = "用户登录",
+            Content = content,
+            BackgroundColor = ThemeManager.Background
+        };
+
+        loginButton.Clicked += async (s, e) =>
+        {
+            if (string.IsNullOrWhiteSpace(emailEntry.Text) || string.IsNullOrWhiteSpace(passwordEntry.Text))
+            {
+                errorLabel.Text = "请输入邮箱和密码";
+                return;
+            }
+
+            var credentials = $"{emailEntry.Text}:{passwordEntry.Text}";
+            await _authVm.LoginCommand.ExecuteAsync(credentials);
+
+            if (_authVm.AuthState.IsAuthenticated)
+            {
+                await Navigation.PopModalAsync();
+            }
+            else
+            {
+                errorLabel.Text = _authVm.AuthState.ErrorMessage ?? "登录失败";
+            }
+        };
+
+        cancelButton.Clicked += async (s, e) => await Navigation.PopModalAsync();
+
+        _authVm.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AuthViewModel.AuthState))
+            {
+                if (_authVm.AuthState.ErrorMessage != null)
+                {
+                    errorLabel.Text = _authVm.AuthState.ErrorMessage;
+                }
+            }
+        };
+
+        await Navigation.PushModalAsync(new NavigationPage(page));
+    }
+
     // ─── Event Handlers ──────────────────────────────────────────
 
     private async void OnTestOcrClicked(object? sender, EventArgs e)
@@ -623,5 +851,29 @@ public class SettingsPage : ContentPage
     private async void OnCloseClicked(object? sender, EventArgs e)
     {
         await Navigation.PopAsync();
+    }
+}
+
+// ─── Helper: FuncConverter for value converters ─────────────────────
+
+public class FuncConverter<TIn, TOut> : IValueConverter
+{
+    private readonly Func<TIn, TOut> _func;
+
+    public FuncConverter(Func<TIn, TOut> func)
+    {
+        _func = func;
+    }
+
+    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+    {
+        if (value is TIn input)
+            return _func(input);
+        return default(TOut);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+    {
+        throw new NotSupportedException();
     }
 }

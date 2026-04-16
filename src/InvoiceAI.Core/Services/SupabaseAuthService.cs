@@ -2,6 +2,8 @@ using InvoiceAI.Core.Helpers;
 using InvoiceAI.Models.Auth;
 using Supabase;
 using Supabase.Gotrue;
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
 using System.Threading;
 using SupabaseClient = Supabase.Client;
 
@@ -10,15 +12,17 @@ namespace InvoiceAI.Core.Services;
 public class SupabaseAuthService : IAuthService
 {
     private readonly SupabaseClient _supabaseClient;
+    private readonly ICloudKeyService? _cloudKeyService;
     private AuthState _currentAuthState = new();
     private readonly SemaphoreSlim _stateLock = new(1, 1);
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     public event EventHandler<AuthState>? AuthStateChanged;
 
-    public SupabaseAuthService(SupabaseClient supabaseClient)
+    public SupabaseAuthService(SupabaseClient supabaseClient, ICloudKeyService? cloudKeyService = null)
     {
         _supabaseClient = supabaseClient;
+        _cloudKeyService = cloudKeyService;
     }
 
     public async Task<AuthResult> SignInAsync(string email, string password)
@@ -29,13 +33,23 @@ public class SupabaseAuthService : IAuthService
 
             if (session?.User != null)
             {
-                var groupId = ExtractGroupId(session.User);
+                var groupId = await ExtractGroupIdAsync(session.User);
+
+                // Fetch cloud keys to verify they exist for this group
+                var cloudKeys = groupId != null && _cloudKeyService != null
+                    ? await _cloudKeyService.GetCloudKeysAsync(groupId)
+                    : null;
+
+                var hasCloudKeys = cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys);
+
                 var newState = new AuthState
                 {
                     IsAuthenticated = true,
                     UserEmail = session.User.Email,
                     UserGroup = groupId,
-                    CloudKeysAvailable = !string.IsNullOrEmpty(groupId)
+                    CloudKeysAvailable = hasCloudKeys,
+                    IsUsingCloudKeys = hasCloudKeys,
+                    ActiveCloudProvider = hasCloudKeys ? GetFirstAvailableProvider(cloudKeys!) : null
                 };
 
                 await UpdateAuthStateAsync(newState);
@@ -94,14 +108,52 @@ public class SupabaseAuthService : IAuthService
         return state.UserGroup;
     }
 
-    private string? ExtractGroupId(User user)
+    private async Task<string?> ExtractGroupIdAsync(User user)
     {
+        // First try to get from metadata (fast path)
         if (user?.UserMetadata != null &&
             user.UserMetadata.TryGetValue("group_id", out var groupId))
         {
-            return groupId?.ToString();
+            var metadataGroup = groupId?.ToString();
+            // Optionally verify against user_groups table for security
+            if (!string.IsNullOrEmpty(metadataGroup))
+            {
+                return metadataGroup;
+            }
         }
+
+        // Fallback: Query user_groups table using Postgrest
+        try
+        {
+            var userId = user?.Id;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var response = await _supabaseClient
+                    .From<user_groups_row>()
+                    .Select("*")
+                    .Where(x => x.user_id == userId)
+                    .Get();
+
+                if (response.Models?.Count > 0)
+                {
+                    return response.Models[0].group_id;
+                }
+            }
+        }
+        catch
+        {
+            // Silently fail and return null
+        }
+
         return null;
+    }
+
+    // Postgrest model for user_groups table
+    [Table("user_groups")]
+    private class user_groups_row : BaseModel
+    {
+        public string user_id { get; set; } = string.Empty;
+        public string group_id { get; set; } = string.Empty;
     }
 
     private async Task UpdateAuthStateAsync(AuthState newState)
@@ -116,5 +168,13 @@ public class SupabaseAuthService : IAuthService
         {
             _stateLock.Release();
         }
+    }
+
+    private string? GetFirstAvailableProvider(CloudKeyConfig config)
+    {
+        if (!string.IsNullOrEmpty(config.ZhipuApiKey)) return "zhipu";
+        if (!string.IsNullOrEmpty(config.NvidiaApiKey)) return "nvidia";
+        if (!string.IsNullOrEmpty(config.CerebrasApiKey)) return "cerebras";
+        return null;
     }
 }

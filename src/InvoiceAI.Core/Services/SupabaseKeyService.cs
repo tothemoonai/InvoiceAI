@@ -59,9 +59,10 @@ public class SupabaseKeyService : ICloudKeyService
             AuthAuditLogger.LogKeyFetch(groupId, false, null);
             return null;
         }
-        catch
+        catch (Exception ex)
         {
             AuthAuditLogger.LogKeyFetch(groupId, false, null);
+            Console.Error.WriteLine($"[SupabaseKeyService] Failed to fetch keys for group '{groupId}': {ex.Message}");
             // Log error but don't throw - caller handles null
             return null;
         }

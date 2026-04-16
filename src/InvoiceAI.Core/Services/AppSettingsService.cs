@@ -67,10 +67,13 @@ public class AppSettingsService : IAppSettingsService
                 var cloudKeys = await _cloudKeyService.GetCachedCloudKeysAsync();
                 if (cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys))
                 {
-                    // Map cloud keys to active provider
-                    var provider = Settings.Glm.Provider;
+                    // Find which provider has keys in cloud config (priority: zhipu > nvidia > cerebras)
+                    var provider = !string.IsNullOrEmpty(cloudKeys.ZhipuApiKey) ? "zhipu"
+                                 : !string.IsNullOrEmpty(cloudKeys.NvidiaApiKey) ? "nvidia"
+                                 : !string.IsNullOrEmpty(cloudKeys.CerebrasApiKey) ? "cerebras"
+                                 : Settings.Glm.Provider; // Fallback to local settings provider
 
-                    // Use cloud keys for the active provider
+                    // Use cloud keys for the provider
                     var cloudKeyConfig = GetCloudKeysForProvider(cloudKeys, provider);
                     if (cloudKeyConfig.HasValue)
                     {

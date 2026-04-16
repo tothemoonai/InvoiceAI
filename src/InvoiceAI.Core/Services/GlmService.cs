@@ -20,11 +20,11 @@ public class GlmService : IGlmService
         _settingsService = settingsService;
     }
 
-    private Dictionary<string, object> BuildRequestBody(string userMessage, int maxTokens, string provider)
+    private Dictionary<string, object> BuildRequestBody(string userMessage, int maxTokens, string provider, string model)
     {
         var body = new Dictionary<string, object>
         {
-            ["model"] = _settingsService.Settings.Glm.GetActiveConfig().Model,
+            ["model"] = model,
             ["messages"] = new object[]
             {
                 new { role = "system", content = InvoicePrompt.SystemPrompt },
@@ -56,7 +56,7 @@ public class GlmService : IGlmService
             var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider);
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider, effectiveKeys.GlmModel);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
@@ -160,7 +160,7 @@ public class GlmService : IGlmService
             var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider);
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider, effectiveKeys.GlmModel);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
@@ -169,6 +169,13 @@ public class GlmService : IGlmService
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
             var response = await _httpClient.SendAsync(request, cts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Directory.CreateDirectory(LogDir);
+                await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_api_error.json"), errorContent);
+            }
 
             if ((int)response.StatusCode == 429 && attempt < maxRetries)
             {
@@ -203,7 +210,7 @@ public class GlmService : IGlmService
             var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildBatchUserMessage(ocrTexts), maxTokens, effectiveKeys.GlmProvider);
+                InvoicePrompt.BuildBatchUserMessage(ocrTexts), maxTokens, effectiveKeys.GlmProvider, effectiveKeys.GlmModel);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
@@ -212,6 +219,13 @@ public class GlmService : IGlmService
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(Math.Max(5, ocrTexts.Length * 3)));
             var response = await _httpClient.SendAsync(request, cts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Directory.CreateDirectory(LogDir);
+                await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_batch_api_error.json"), errorContent);
+            }
 
             if ((int)response.StatusCode == 429 && attempt < maxRetries)
             {
