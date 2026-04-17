@@ -1,0 +1,142 @@
+# InvoiceAI - 日本发票智能识别助手
+
+基于 AI 的日本发票（適格請求書）智能识别与管理工具。自动识别发票内容、分类存储，并支持导出到 Excel。
+
+## 功能特性
+
+- **智能 OCR 识别**：支持图片、PDF 发票识别
+- **AI 内容分析**：自动识别发票类型（適格請求書/区分记载请求书/不适格请求书）
+- **本地数据存储**：SQLite 数据库，所有数据保存在本地
+- **Excel 导出**：一键导出所有发票数据到 Excel
+- **多语言支持**：中文 / 日本语界面
+- **云配置支持**：Supabase 云端 API 密钥管理（可选）
+
+## 系统要求
+
+- Windows 10/11 (版本 19041 或更高)
+- .NET 9.0 Runtime
+
+## 快速开始
+
+### 1. 下载安装
+
+下载最新版本并解压运行 `InvoiceAI.App.exe`。
+
+### 2. 配置 API
+
+首次运行需要配置 API 密钥。编辑 `appsettings.json` 文件（与程序同目录）：
+
+```json
+{
+  "PaddleOcr": {
+    "Token": "your_aistudio_token",
+    "Endpoint": "https://aistudio.baidu.com/..."
+  },
+  "GlmProviders": {
+    "Zhipu": {
+      "ApiKey": "your_glm_api_key",
+      "Endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "Model": "glm-4.7"
+    }
+  },
+  "DefaultProvider": "Zhipu"
+}
+```
+
+**获取 API 密钥：**
+- **PaddleOCR**: [百度 AI Studio](https://aistudio.baidu.com/) - 免费额度
+- **GLM-4.7**: [智谱 AI 开放平台](https://open.bigmodel.cn/) - 注册后获取
+
+### 3. 使用软件
+
+#### 导入发票
+
+1. 点击「导入」按钮或**直接拖拽文件**到窗口
+2. 支持格式：JPG、PNG、PDF
+3. 等待 OCR 识别和 AI 分析完成
+
+#### 查看分类
+
+左侧自动显示三种发票类型：
+- **適格請求書** (标准适格请求书)
+- **簡易請求書** (简化请求书)
+- **不适格** (不适格请求书)
+
+#### 查看详情
+
+点击发票列表中的任一项，右侧显示详细信息：
+- 发票基本信息
+- 明细项目
+- 缺失字段提醒（如果有）
+
+#### 导出 Excel
+
+点击「导出 Excel」按钮，选择保存位置，自动生成包含所有发票的 Excel 文件。
+
+## 发票类型说明（日本国税厅规则）
+
+### 適格請求書（适格请求书）
+必须包含以下 6 项：
+1. 适格请求书发行者的姓名或名称
+2. 交易日期
+3. 交易内容
+4. 交易金额（税率不同时分别标注）
+5. 交付接收方的姓名或名称
+6. 适格请求书发行者的注册编号（T+13 位数字）
+
+### 区分记载请求书（简略适格请求书）
+中小型企业（免税销售额 1000 万日元以下）可使用的简化格式。
+
+### 不适格请求书
+不符合上述规则的发票。
+
+## 配置文件说明
+
+`appsettings.json` 配置项：
+
+| 设置 | 说明 |
+|------|------|
+| `PaddleOcr.Token` | 百度 AI Studio 的访问令牌 |
+| `PaddleOcr.Endpoint` | PaddleOCR API 端点 |
+| `GlmProviders` | AI 提供商配置（支持多个） |
+| `DefaultProvider` | 默认使用的 AI 提供商 |
+| `Language` | 界面语言：`zh` 或 `ja` |
+| `Categories` | 发票分类列表 |
+
+## 数据存储
+
+- **数据库**：`%LocalAppData%\InvoiceAI\invoices.db`
+- **OCR 调试输出**：`%TEMP%\InvoiceAI\ocr\`
+- **错误日志**：`%TEMP%\InvoiceAI\import_error.log`
+
+## 云端 API 管理（可选）
+
+支持通过 Supabase 管理云端 API 密钥，适合团队使用：
+
+1. 在登录界面点击「注册」创建账户
+2. 登录后自动使用云端配置的 API 密钥
+3. 云端密钥优先于本地配置
+
+## 常见问题
+
+**Q: OCR 识别不准确怎么办？**
+A: 可以在设置页面测试 OCR 连接，确保 API 密钥正确。
+
+**Q: AI 分析失败？**
+A: 检查 GLM API 密钥和额度，在设置页面测试 AI 连接。
+
+**Q: 支持 PDF 多页吗？**
+A: 目前支持单页 PDF，多页 PDF 会识别第一页。
+
+**Q: 数据安全吗？**
+A: 所有数据保存在本地 SQLite 数据库，仅调用云端 API 进行识别分析。
+
+## 许可证
+
+本项目仅供个人学习使用。
+
+## 致谢
+
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - OCR 识别
+- [智谱 AI](https://open.bigmodel.cn/) - GLM-4.7 API
+- [.NET MAUI](https://learn.microsoft.com/dotnet/maui/) - 跨平台框架
