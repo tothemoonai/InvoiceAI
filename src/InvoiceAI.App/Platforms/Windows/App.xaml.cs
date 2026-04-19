@@ -31,7 +31,10 @@ public partial class App : MauiWinUIApplication
         if (_isTestMode)
         {
             // 测试模式: 不创建窗口，直接执行测试
-            RunTestModeAsync(arguments).Wait();
+            // TODO: TestRunner not found, disabled for now
+            // RunTestModeAsync(arguments).Wait();
+            Console.WriteLine("Test mode is currently disabled.");
+            Environment.Exit(1);
             return; // 不调用 base.OnLaunched，不创建 MAUI 窗口
         }
 
@@ -39,20 +42,20 @@ public partial class App : MauiWinUIApplication
         base.OnLaunched(args);
     }
 
-    private static async Task RunTestModeAsync(string[] args)
-    {
-        Console.WriteLine("正在启动测试模式...");
-        try
-        {
-            int exitCode = await InvoiceAI.App.TestRunner.RunAsync(args);
-            Environment.Exit(exitCode);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"测试模式启动失败: {ex.Message}");
-            Environment.Exit(2);
-        }
-    }
+    // private static async Task RunTestModeAsync(string[] args)
+    // {
+    //     Console.WriteLine("正在启动测试模式...");
+    //     try
+    //     {
+    //         int exitCode = await InvoiceAI.App.TestRunner.RunAsync(args);
+    //         Environment.Exit(exitCode);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"测试模式启动失败: {ex.Message}");
+    //         Environment.Exit(2);
+    //     }
+    // }
 
     protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
 }

@@ -58,6 +58,10 @@ public class InvoiceImportService : IInvoiceImportService
             var pdfFailedFiles = new List<string>();
 
             // Phase 0: Convert PDFs to images
+            bool hasPdf = supported.Any(f => Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
+            if (hasPdf)
+                OnStatusChanged("📄 正在转换 PDF 为图片...");
+
             foreach (var filePath in supported)
             {
                 var ext = Path.GetExtension(filePath);
@@ -117,6 +121,7 @@ public class InvoiceImportService : IInvoiceImportService
         var ocrSuccessIndices = new List<int>();
 
         // Phase 1: Compress
+        OnStatusChanged("📦 正在压缩图片...");
         for (int i = 0; i < batchItems.Count; i++)
         {
             try
@@ -130,6 +135,7 @@ public class InvoiceImportService : IInvoiceImportService
         }
 
         // Phase 2: OCR
+        OnStatusChanged("🔍 正在进行 OCR 识别...");
         for (int i = 0; i < batchItems.Count; i++)
         {
             try
@@ -152,6 +158,7 @@ public class InvoiceImportService : IInvoiceImportService
         if (ocrSuccessIndices.Count == 0) return;
 
         // Phase 3: GLM AI — with fallback logic
+        OnStatusChanged("🤖 正在进行 AI 分析...");
         var ocrTexts = ocrSuccessIndices.Select(i => ocrResults[i].Text).ToArray();
         List<GlmInvoiceResponse>? glmResults = null;
 
@@ -176,7 +183,7 @@ public class InvoiceImportService : IInvoiceImportService
             if (nextProvider != null)
             {
                 _settingsService.Settings.Glm.Provider = nextProvider;
-                OnStatusChanged($"当前提供商连接失败，已切换到 {GetProviderDisplayName(nextProvider)} 继续处理");
+                OnStatusChanged($"⚠️ 提供商切换中... {GetProviderDisplayName(nextProvider)}");
 
                 try
                 {
@@ -200,6 +207,7 @@ public class InvoiceImportService : IInvoiceImportService
         // Phase 4: Save and Archive (only if we have valid results)
         if (glmResults != null)
         {
+            OnStatusChanged("💾 正在保存发票数据...");
             // Map GLM results to OCR results (1-to-1 mapping for simplicity and correctness)
             for (int j = 0; j < ocrSuccessIndices.Count && j < glmResults.Count; j++)
             {
@@ -228,36 +236,7 @@ public class InvoiceImportService : IInvoiceImportService
                     catch { }
                 }
             }
-        }
-
-        // Phase 4: Save and Archive
-        // Map GLM results to OCR results (1-to-1 mapping for simplicity and correctness)
-        for (int j = 0; j < ocrSuccessIndices.Count && j < glmResults.Count; j++)
-        {
-            var idx = ocrSuccessIndices[j];
-            var glm = glmResults[j];
-            var (_, ocrText, hash) = ocrResults[idx];
-            var sourceFile = batchPaths[idx];
-
-            var invoice = MapToInvoice(glm, ocrText, sourceFile, hash);
-            invoice = await _invoiceService.SaveAsync(invoice);
-            result.Invoices.Add(invoice);
-            result.SuccessCount++;
-
-            // Archive
-            if (!string.IsNullOrWhiteSpace(_settingsService.Settings.InvoiceArchivePath))
-            {
-                try
-                {
-                    await _fileService.CopyToInvoiceArchiveAsync(
-                        sourceFile,
-                        _settingsService.Settings.InvoiceArchivePath,
-                        invoice.Category,
-                        invoice.IssuerName,
-                        invoice.TransactionDate);
-                }
-                catch { }
-            }
+            OnStatusChanged($"✅ 已保存 {result.SuccessCount} 张发票");
         }
     }
 

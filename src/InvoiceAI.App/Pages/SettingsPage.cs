@@ -393,10 +393,18 @@ public class SettingsPage : ContentPage
         };
         cerebras.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsCerebrasProvider));
 
+        var google = new RadioButton
+        {
+            Content = new Label { Text = "Google", FontSize = 14 },
+            Value = "google",
+            HorizontalOptions = LayoutOptions.Start
+        };
+        google.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsGoogleProvider));
+
         return new HorizontalStackLayout
         {
             Spacing = 16,
-            Children = { zhipu, nvidia, cerebras }
+            Children = { zhipu, nvidia, cerebras, google }
         };
     }
 
@@ -408,10 +416,22 @@ public class SettingsPage : ContentPage
         {
             FontSize = 14,
             MinimumHeightRequest = 40,
-            Title = "选择模型"
+            Title = "选择起始模型（失败时自动切换到下一个）"
         };
         picker.SetBinding(Picker.ItemsSourceProperty, nameof(_vm.AvailableModels));
         picker.SetBinding(Picker.SelectedIndexProperty, nameof(_vm.SelectedModelIndex));
+
+        // 模型数量提示标签
+        var modelInfoLabel = new Label
+        {
+            FontSize = 11,
+            TextColor = ThemeManager.TextTertiary
+        };
+        modelInfoLabel.SetBinding(Label.TextProperty, nameof(_vm.AvailableModels), converter: new FuncConverter<System.Collections.IList, string>(models =>
+            models != null && models.Count > 1
+                ? $"当前提供商有 {models.Count} 个模型，失败时自动切换"
+                : "当前提供商仅有 1 个模型"
+        ));
 
         return new Border
         {
@@ -426,11 +446,12 @@ public class SettingsPage : ContentPage
                 {
                     new Label
                     {
-                        Text = "模型",
+                        Text = "模型 (起始模型)",
                         FontSize = 12,
                         TextColor = ThemeManager.TextSecondary
                     },
-                    picker
+                    picker,
+                    modelInfoLabel
                 }
             }
         };

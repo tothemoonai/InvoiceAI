@@ -14,11 +14,15 @@ public class GlmService : IGlmService
 
     private static string LogDir => Helpers.LogHelper.LogDir;
 
+    public event EventHandler<string>? StatusChanged;
+
     public GlmService(HttpClient httpClient, IAppSettingsService settingsService)
     {
         _httpClient = httpClient;
         _settingsService = settingsService;
     }
+
+    private void OnStatusChanged(string message) => StatusChanged?.Invoke(this, message);
 
     private Dictionary<string, object> BuildRequestBody(string userMessage, int maxTokens, string provider, string model)
     {
@@ -45,6 +49,117 @@ public class GlmService : IGlmService
         }
 
         return body;
+    }
+
+    /// <summary>
+    /// 使用模型循环尝试处理单个 OCR 文本
+    /// 从用户选择的模型开始，依次尝试后续所有模型
+    /// </summary>
+    private async Task<List<GlmInvoiceResponse>> ProcessWithModelFallbackAsync(
+        string[] ocrTexts,
+        string apiKey,
+        string endpoint,
+        (string Id, string Name)[] models,
+        int startIndex,
+        int baseMaxTokens,
+        string provider)
+    {
+        // 根据批处理大小动态调整 max_tokens
+        var maxTokens = ocrTexts.Length > 1
+            ? Math.Max(baseMaxTokens, ocrTexts.Length * 16000)  // 批处理时增加 token 限制
+            : baseMaxTokens;
+
+        // 从用户选择的模型开始，依次尝试
+        for (int modelIdx = startIndex; modelIdx < models.Length; modelIdx++)
+        {
+            var model = models[modelIdx];
+            try
+            {
+                if (modelIdx > startIndex)
+                {
+                    OnStatusChanged($"⚠️ 模型 {models[modelIdx - 1].Name} 失败，切换到 {model.Name} ({modelIdx + 1}/{models.Length})...");
+                }
+                else if (models.Length > 1)
+                {
+                    OnStatusChanged($"🤖 尝试模型 {model.Name} (第 {modelIdx + 1}/{models.Length} 个)...");
+                }
+
+                return await CallGlmApiAsync(ocrTexts, apiKey, endpoint, model.Id, maxTokens, provider);
+            }
+            catch (Exception ex)
+            {
+                Directory.CreateDirectory(LogDir);
+                File.AppendAllText(Path.Combine(LogDir, "import_error.log"),
+                    $"[{DateTime.Now:HH:mm:ss}] 模型 {model.Name} 失败: {ex.Message}\n");
+
+                // 如果还有更多模型可尝试，继续循环
+                if (modelIdx < models.Length - 1)
+                {
+                    continue;
+                }
+                else
+                {
+                    // 最后一个模型也失败了
+                    throw new Exception($"该提供商所有模型均失败: {models[startIndex].Name} → ... → {model.Name}");
+                }
+            }
+        }
+
+        throw new Exception("没有可用的模型");
+    }
+
+    /// <summary>
+    /// 调用 GLM API 的核心方法
+    /// </summary>
+    private async Task<List<GlmInvoiceResponse>> CallGlmApiAsync(
+        string[] ocrTexts,
+        string apiKey,
+        string endpoint,
+        string model,
+        int maxTokens,
+        string provider)
+    {
+        const int maxRetries = 3;
+        for (int attempt = 0; ; attempt++)
+        {
+            var userMessage = ocrTexts.Length == 1
+                ? InvoicePrompt.BuildUserMessage(ocrTexts[0])
+                : InvoicePrompt.BuildBatchUserMessage(ocrTexts);
+
+            var requestBody = BuildRequestBody(userMessage, maxTokens, provider, model);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+            var jsonPayload = JsonSerializer.Serialize(requestBody);
+            request.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
+
+            // 批处理超时时间更长
+            var timeout = ocrTexts.Length > 1 ? TimeSpan.FromMinutes(Math.Max(5, ocrTexts.Length * 3)) : TimeSpan.FromMinutes(3);
+            using var cts = new CancellationTokenSource(timeout);
+            var response = await _httpClient.SendAsync(request, cts.Token);
+
+            if ((int)response.StatusCode == 429 && attempt < maxRetries)
+            {
+                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt) * 2);
+                await Task.Delay(delay, cts.Token);
+                continue;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            // Save raw GLM response for debugging
+            Directory.CreateDirectory(LogDir);
+            var responseFile = ocrTexts.Length > 1
+                ? "glm_batch_raw_response.json"
+                : "glm_raw_response.json";
+            await File.WriteAllTextAsync(
+                Path.Combine(LogDir, responseFile),
+                json.GetRawText());
+
+            return ParseResponse(json);
+        }
     }
 
     public async Task<GlmInvoiceResponse> ProcessInvoiceAsync(string ocrText)
@@ -97,57 +212,22 @@ public class GlmService : IGlmService
     {
         if (ocrTexts.Length == 0) return [];
 
-        // Always use batch processing path to properly handle multi-invoice responses
-        // (even for single files that may contain multiple invoices like multi-page PDFs)
+        // 获取当前提供商的配置（包括所有模型）
+        var (apiKey, endpoint, models, selectedIndex, maxTokens) = _settingsService.Settings.Glm.GetActiveConfigWithModels();
+        var provider = _settingsService.Settings.Glm.Provider;
+
+        // 使用模型循环尝试
         try
         {
-            var batchResults = await ProcessBatchCoreAsync(ocrTexts);
-
-            // If batch returned fewer results than inputs, process missing ones individually
-            if (batchResults.Count < ocrTexts.Length)
-            {
-                Directory.CreateDirectory(LogDir);
-                File.AppendAllText(Path.Combine(LogDir, "import_error.log"),
-                    $"[{DateTime.Now:HH:mm:ss}] GLM batch returned {batchResults.Count}/{ocrTexts.Length} results, processing remaining individually\n");
-                for (int i = batchResults.Count; i < ocrTexts.Length; i++)
-                {
-                    try
-                    {
-                        var singleResults = await ProcessInvoiceAsyncInternal(ocrTexts[i]);
-                        batchResults.AddRange(singleResults);
-                    }
-                    catch (Exception ex)
-                    {
-                        File.AppendAllText(Path.Combine(LogDir, "import_error.log"),
-                            $"[{DateTime.Now:HH:mm:ss}] Individual fallback #{i} failed: {ex.Message}\n");
-                    }
-                }
-            }
-
-            return batchResults;
+            return await ProcessWithModelFallbackAsync(ocrTexts, apiKey, endpoint, models, selectedIndex, maxTokens, provider);
         }
         catch (Exception ex)
         {
+            // 该提供商所有模型都失败了
             Directory.CreateDirectory(LogDir);
-            await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_batch_error.txt"),
-                $"Batch failed, falling back to individual calls.\n{ex}");
-            // Process individually with per-item error handling
-            var results = new List<GlmInvoiceResponse>();
-            for (int i = 0; i < ocrTexts.Length; i++)
-            {
-                try
-                {
-                    var singleResults = await ProcessInvoiceAsyncInternal(ocrTexts[i]);
-                    results.AddRange(singleResults);
-                    if (i < ocrTexts.Length - 1) await Task.Delay(1000);
-                }
-                catch (Exception itemEx)
-                {
-                    File.AppendAllText(Path.Combine(LogDir, "import_error.log"),
-                        $"[{DateTime.Now:HH:mm:ss}] Fallback item #{i} failed: {itemEx.Message}\n");
-                }
-            }
-            return results;
+            await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_provider_error.txt"),
+                $"Provider {provider} all models failed: {ex}");
+            throw;
         }
     }
 

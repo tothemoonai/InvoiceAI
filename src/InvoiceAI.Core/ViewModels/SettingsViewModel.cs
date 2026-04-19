@@ -49,6 +49,12 @@ public partial class SettingsViewModel : ObservableObject
             _glmEndpoint = s.Glm.CerebrasEndpoint;
             _glmModel = s.Glm.CerebrasModel;
         }
+        else if (s.Glm.Provider == "google")
+        {
+            _glmApiKey = s.Glm.GoogleApiKey;
+            _glmEndpoint = s.Glm.GoogleEndpoint;
+            _glmModel = s.Glm.GoogleModel;
+        }
         else
         {
             _glmApiKey = s.Glm.ApiKey;
@@ -89,6 +95,11 @@ public partial class SettingsViewModel : ObservableObject
                 s.Glm.CerebrasEndpoint = GlmEndpoint;
                 s.Glm.CerebrasModel = GlmModel;
                 break;
+            case "google":
+                s.Glm.GoogleApiKey = GlmApiKey;
+                s.Glm.GoogleEndpoint = GlmEndpoint;
+                s.Glm.GoogleModel = GlmModel;
+                break;
             default:
                 s.Glm.ApiKey = GlmApiKey;
                 s.Glm.Endpoint = GlmEndpoint;
@@ -109,6 +120,11 @@ public partial class SettingsViewModel : ObservableObject
                 GlmApiKey = s.Glm.CerebrasApiKey;
                 GlmEndpoint = s.Glm.CerebrasEndpoint;
                 GlmModel = s.Glm.CerebrasModel;
+                break;
+            case "google":
+                GlmApiKey = s.Glm.GoogleApiKey;
+                GlmEndpoint = s.Glm.GoogleEndpoint;
+                GlmModel = s.Glm.GoogleModel;
                 break;
             default:
                 GlmApiKey = s.Glm.ApiKey;
@@ -157,6 +173,11 @@ public partial class SettingsViewModel : ObservableObject
                 GlmEndpoint = s.Glm.CerebrasEndpoint;
                 GlmModel = s.Glm.CerebrasModel;
                 break;
+            case "google":
+                GlmApiKey = s.Glm.GoogleApiKey;
+                GlmEndpoint = s.Glm.GoogleEndpoint;
+                GlmModel = s.Glm.GoogleModel;
+                break;
             default:
                 GlmApiKey = s.Glm.ApiKey;
                 GlmEndpoint = s.Glm.Endpoint;
@@ -169,17 +190,14 @@ public partial class SettingsViewModel : ObservableObject
     {
         var models = s.Glm.GetModelsForProvider();
         AvailableModels = new ObservableCollection<string>(models.Select(m => m.Name));
-        // Find matching model and set selected index
-        var currentModel = s.Glm.Provider switch
-        {
-            "nvidia" => s.Glm.NvidiaModel,
-            "cerebras" => s.Glm.CerebrasModel,
-            _ => s.Glm.Model
-        };
-        var idx = Array.FindIndex(models, m => m.Id == currentModel);
-        SelectedModelIndex = idx >= 0 ? idx : 0;
-        // Update GlmModel to match selection
-        if (idx >= 0) GlmModel = models[idx].Id;
+
+        // 使用新的索引系统
+        var savedIndex = s.Glm.GetSelectedModelIndex();
+        SelectedModelIndex = savedIndex >= 0 && savedIndex < models.Length ? savedIndex : 0;
+
+        // 更新 GlmModel 以匹配选择（用于兼容性）
+        if (SelectedModelIndex >= 0 && SelectedModelIndex < models.Length)
+            GlmModel = models[SelectedModelIndex].Id;
     }
 
     partial void OnSelectedModelIndexChanged(int value)
@@ -200,6 +218,7 @@ public partial class SettingsViewModel : ObservableObject
             GlmProvider = "zhipu";
             OnPropertyChanged(nameof(IsNvidiaProvider));
             OnPropertyChanged(nameof(IsCerebrasProvider));
+            OnPropertyChanged(nameof(IsGoogleProvider));
         }
     }
 
@@ -212,6 +231,7 @@ public partial class SettingsViewModel : ObservableObject
             GlmProvider = "nvidia";
             OnPropertyChanged(nameof(IsZhipuProvider));
             OnPropertyChanged(nameof(IsCerebrasProvider));
+            OnPropertyChanged(nameof(IsGoogleProvider));
         }
     }
 
@@ -224,6 +244,20 @@ public partial class SettingsViewModel : ObservableObject
             GlmProvider = "cerebras";
             OnPropertyChanged(nameof(IsZhipuProvider));
             OnPropertyChanged(nameof(IsNvidiaProvider));
+            OnPropertyChanged(nameof(IsGoogleProvider));
+        }
+    }
+
+    public bool IsGoogleProvider
+    {
+        get => GlmProvider == "google";
+        set
+        {
+            if (!value) return;
+            GlmProvider = "google";
+            OnPropertyChanged(nameof(IsZhipuProvider));
+            OnPropertyChanged(nameof(IsNvidiaProvider));
+            OnPropertyChanged(nameof(IsCerebrasProvider));
         }
     }
 
@@ -313,16 +347,25 @@ public partial class SettingsViewModel : ObservableObject
                 s.Glm.NvidiaApiKey = GlmApiKey;
                 s.Glm.NvidiaEndpoint = GlmEndpoint;
                 s.Glm.NvidiaModel = GlmModel;
+                s.Glm.NvidiaSelectedModelIndex = SelectedModelIndex;
                 break;
             case "cerebras":
                 s.Glm.CerebrasApiKey = GlmApiKey;
                 s.Glm.CerebrasEndpoint = GlmEndpoint;
                 s.Glm.CerebrasModel = GlmModel;
+                s.Glm.CerebrasSelectedModelIndex = SelectedModelIndex;
+                break;
+            case "google":
+                s.Glm.GoogleApiKey = GlmApiKey;
+                s.Glm.GoogleEndpoint = GlmEndpoint;
+                s.Glm.GoogleModel = GlmModel;
+                s.Glm.GoogleSelectedModelIndex = SelectedModelIndex;
                 break;
             default:
                 s.Glm.ApiKey = GlmApiKey;
                 s.Glm.Endpoint = GlmEndpoint;
                 s.Glm.Model = GlmModel;
+                s.Glm.ZhipuSelectedModelIndex = SelectedModelIndex;
                 break;
         }
         s.Language = SelectedLanguage;
@@ -399,6 +442,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 "nvidia" => "NVIDIA NIM",
                 "cerebras" => "Cerebras",
+                "google" => "Google",
                 _ => "智谱 (Zhipu)"
             };
             TestResult = $"正在测试 {providerName} 连接...";
@@ -415,6 +459,11 @@ public partial class SettingsViewModel : ObservableObject
                     settings.Glm.CerebrasApiKey = GlmApiKey;
                     settings.Glm.CerebrasEndpoint = GlmEndpoint;
                     settings.Glm.CerebrasModel = GlmModel;
+                    break;
+                case "google":
+                    settings.Glm.GoogleApiKey = GlmApiKey;
+                    settings.Glm.GoogleEndpoint = GlmEndpoint;
+                    settings.Glm.GoogleModel = GlmModel;
                     break;
                 default:
                     settings.Glm.ApiKey = GlmApiKey;
@@ -454,6 +503,7 @@ public partial class SettingsViewModel : ObservableObject
             {
                 "nvidia" => "NVIDIA NIM",
                 "cerebras" => "Cerebras",
+                "google" => "Google",
                 _ => "智谱 (Zhipu)"
             };
             TestResult = $"{providerName} 连接异常: {ex.Message}";
