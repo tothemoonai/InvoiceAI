@@ -22,7 +22,7 @@ public class InvoiceImportService : IInvoiceImportService
     private readonly IProviderFallbackManager _fallbackManager;
 
     // 每批处理的图片数量
-    private const int BatchSize = 5;
+    private const int BatchSize = 3;
 
     public event EventHandler<string>? StatusChanged;
 
@@ -163,19 +163,22 @@ public class InvoiceImportService : IInvoiceImportService
         // Phase 3: GLM AI — with fallback logic
         // Status will be updated by GLM service (shows provider and model)
         var ocrTexts = ocrSuccessIndices.Select(i => ocrResults[i].Text).ToArray();
-        List<GlmInvoiceResponse>? glmResults = null;
+        var glmResults = new GlmInvoiceResponse[ocrTexts.Length];
+        int processedCount = 0;
 
         var currentProvider = _settingsService.Settings.Glm.Provider;
 
+        // 3a: Try batch processing first
+        List<GlmInvoiceResponse>? batchResults = null;
+        bool batchFailed = false;
         try
         {
-            glmResults = await _glmService.ProcessBatchAsync(ocrTexts);
+            batchResults = await _glmService.ProcessBatchAsync(ocrTexts);
 
-            // Validate response
-            if (glmResults == null || glmResults.Count == 0)
+            if (batchResults == null || batchResults.Count == 0)
                 throw new InvalidOperationException("GLM 返回结果为空");
 
-            var allFailed = glmResults.All(r => r.MissingFields?.Count > 5);
+            var allFailed = batchResults.All(r => r.MissingFields?.Count > 5);
             if (allFailed)
                 throw new InvalidOperationException("GLM 返回结果全部标记为缺失字段");
         }
@@ -190,57 +193,94 @@ public class InvoiceImportService : IInvoiceImportService
 
                 try
                 {
-                    glmResults = await _glmService.ProcessBatchAsync(ocrTexts);
-                    if (glmResults == null || glmResults.Count == 0)
+                    batchResults = await _glmService.ProcessBatchAsync(ocrTexts);
+                    if (batchResults == null || batchResults.Count == 0)
                         throw new InvalidOperationException("切换提供商后 GLM 返回结果仍为空");
                 }
                 catch (Exception retryEx)
                 {
-                    HandleFallbackFailure(batchItems, result, retryEx);
-                    return;
+                    batchFailed = true;
+                    LogHelper.Log($"Batch failed with fallback: {retryEx.Message}");
                 }
             }
             else
             {
-                HandleFallbackFailure(batchItems, result, ex);
-                return;
+                batchFailed = true;
+                LogHelper.Log($"Batch failed, no fallback: {ex.Message}");
             }
         }
 
-        // Phase 4: Save and Archive (only if we have valid results)
-        if (glmResults != null)
+        // 3b: Use batch results for successfully processed invoices
+        if (batchResults != null && batchResults.Count > 0)
         {
-            OnStatusChanged("💾 正在保存发票数据...");
-            // Map GLM results to OCR results (1-to-1 mapping for simplicity and correctness)
-            for (int j = 0; j < ocrSuccessIndices.Count && j < glmResults.Count; j++)
+            int copyCount = Math.Min(batchResults.Count, ocrTexts.Length);
+            for (int i = 0; i < copyCount; i++)
             {
-                var idx = ocrSuccessIndices[j];
-                var glm = glmResults[j];
-                var (_, ocrText, hash) = ocrResults[idx];
-                var sourceFile = batchPaths[idx];
+                glmResults[i] = batchResults[i];
+            }
+            processedCount = copyCount;
+        }
 
-                var invoice = MapToInvoice(glm, ocrText, sourceFile, hash);
-                invoice = await _invoiceService.SaveAsync(invoice);
-                result.Invoices.Add(invoice);
-                result.SuccessCount++;
-
-                // Archive
-                if (!string.IsNullOrWhiteSpace(_settingsService.Settings.InvoiceArchivePath))
+        // 3c: Process any remaining invoices individually (batch returned fewer than expected)
+        if (processedCount < ocrTexts.Length)
+        {
+            OnStatusChanged($"🔄 批量返回 {processedCount}/{ocrTexts.Length} 张，正在逐张处理剩余发票...");
+            for (int i = processedCount; i < ocrTexts.Length; i++)
+            {
+                try
                 {
-                    try
+                    var singleResults = await _glmService.ProcessBatchAsync([ocrTexts[i]]);
+                    if (singleResults != null && singleResults.Count > 0)
                     {
-                        await _fileService.CopyToInvoiceArchiveAsync(
-                            sourceFile,
-                            _settingsService.Settings.InvoiceArchivePath,
-                            invoice.Category,
-                            invoice.IssuerName,
-                            invoice.TransactionDate);
+                        glmResults[i] = singleResults[0];
+                        processedCount++;
                     }
-                    catch { }
+                }
+                catch
+                {
+                    // Individual processing failed, skip this invoice
                 }
             }
-            OnStatusChanged($"✅ 已保存 {result.SuccessCount} 张发票");
         }
+
+        if (processedCount == 0)
+        {
+            HandleFallbackFailure(batchItems, result, new Exception("批量处理失败且逐张处理也失败"));
+            return;
+        }
+
+        // Phase 4: Save and Archive
+        OnStatusChanged("💾 正在保存发票数据...");
+        for (int j = 0; j < ocrSuccessIndices.Count; j++)
+        {
+            if (glmResults[j] == null) continue; // Skip invoices that failed both batch and individual processing
+
+            var idx = ocrSuccessIndices[j];
+            var glm = glmResults[j];
+            var (_, ocrText, hash) = ocrResults[idx];
+            var sourceFile = batchPaths[idx];
+
+            var invoice = MapToInvoice(glm, ocrText, sourceFile, hash);
+            invoice = await _invoiceService.SaveAsync(invoice);
+            result.Invoices.Add(invoice);
+            result.SuccessCount++;
+
+            // Archive
+            if (!string.IsNullOrWhiteSpace(_settingsService.Settings.InvoiceArchivePath))
+            {
+                try
+                {
+                    await _fileService.CopyToInvoiceArchiveAsync(
+                        sourceFile,
+                        _settingsService.Settings.InvoiceArchivePath,
+                        invoice.Category,
+                        invoice.IssuerName,
+                        invoice.TransactionDate);
+                }
+                catch { }
+            }
+        }
+        OnStatusChanged($"✅ 已保存 {result.SuccessCount} 张发票");
     }
 
     private static Invoice MapToInvoice(GlmInvoiceResponse glm, string ocrText, string filePath, string hash)

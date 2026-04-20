@@ -1221,6 +1221,31 @@ public class MainPage : ContentPage
                         {
                             _importOverlay.IsVisible = false;
                             _ = _vm.LoadDataCommand.ExecuteAsync(null);
+
+                            // 显示完成结果弹窗
+                            var successCount = _importVm.Results.Count;
+                            var totalItems = _importVm.ImportItems.Count;
+                            var skipCount = _importVm.ImportItems.Count(i => i.Status == "⏭️ 跳过");
+                            var failCount = totalItems - successCount - skipCount;
+                            if (failCount < 0) failCount = 0;
+
+                            if (successCount > 0 || failCount > 0)
+                            {
+                                var msg = failCount > 0
+                                    ? $"成功: {successCount} 张\n失败: {failCount} 张"
+                                    : $"成功识别 {successCount} 张发票";
+                                MainThread.BeginInvokeOnMainThread(async () =>
+                                {
+                                    await this.DisplayAlert("导入完成", msg, "OK");
+                                });
+                            }
+                            else
+                            {
+                                MainThread.BeginInvokeOnMainThread(async () =>
+                                {
+                                    await this.DisplayAlert("导入完成", "未识别到有效发票", "OK");
+                                });
+                            }
                         }
                         break;
                     case nameof(_importVm.StatusMessage):

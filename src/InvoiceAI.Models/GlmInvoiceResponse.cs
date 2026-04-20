@@ -1,6 +1,42 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace InvoiceAI.Models;
+
+/// <summary>
+/// Converts JSON values to strings for deserialization.
+/// Handles cases where LLM returns numbers instead of strings in arrays (e.g., missingFields: [1, 2]).
+/// </summary>
+public class FlexibleStringListConverter : JsonConverter<List<string>>
+{
+    public override List<string>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.StartArray)
+        {
+            var list = new List<string>();
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndArray) return list;
+                list.Add(reader.TokenType switch
+                {
+                    JsonTokenType.String => reader.GetString() ?? "",
+                    JsonTokenType.Number => reader.GetInt32().ToString(),
+                    JsonTokenType.True => "true",
+                    JsonTokenType.False => "false",
+                    JsonTokenType.Null => "",
+                    _ => reader.GetString() ?? ""
+                });
+            }
+            return list;
+        }
+        return [];
+    }
+
+    public override void Write(Utf8JsonWriter writer, List<string> value, JsonSerializerOptions options)
+    {
+        JsonSerializer.Serialize(writer, value, options);
+    }
+}
 
 public class GlmInvoiceResponse
 {
@@ -35,6 +71,7 @@ public class GlmInvoiceResponse
     public string InvoiceType { get; set; } = "NonQualified";
 
     [JsonPropertyName("missingFields")]
+    [JsonConverter(typeof(FlexibleStringListConverter))]
     public List<string> MissingFields { get; set; } = [];
 
     [JsonPropertyName("suggestedCategory")]
