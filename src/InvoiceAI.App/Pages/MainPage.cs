@@ -239,6 +239,14 @@ public class MainPage : ContentPage
             ItemsSource = _vm.Invoices,
             ItemTemplate = new DataTemplate(() =>
             {
+                // CheckBox for multi-select (WinUI3 native control has ~64px min width)
+                var checkBox = new CheckBox
+                {
+                    VerticalOptions = LayoutOptions.Center,
+                    HorizontalOptions = LayoutOptions.Start
+                };
+                checkBox.SetBinding(CheckBox.IsCheckedProperty, nameof(Invoice.IsSelected), BindingMode.TwoWay);
+
                 // Issuer name
                 var issuerLabel = new Label
                 {
@@ -305,19 +313,21 @@ public class MainPage : ContentPage
                     },
                     ColumnDefinitions =
                     {
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
-                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto))
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto)), // CheckBox
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Star)), // Content
+                        new ColumnDefinition(new GridLength(1, GridUnitType.Auto))  // Type badge
                     },
                     Children =
                     {
-                        issuerLabel.Row(0).Column(0),
-                        typeBadge.Row(0).Column(1),
+                        checkBox.Row(0).Column(0).RowSpan(3),
+                        issuerLabel.Row(0).Column(1),
+                        typeBadge.Row(0).Column(2),
                         new HorizontalStackLayout
                         {
                             Spacing = 0,
                             Children = { dateLabel, amountLabel }
-                        }.Row(1).Column(0).ColumnSpan(2),
-                        catLabel.Row(2).Column(0)
+                        }.Row(1).Column(1).ColumnSpan(2),
+                        catLabel.Row(2).Column(1)
                     }
                 };
 
@@ -1267,15 +1277,7 @@ public class MainPage : ContentPage
 
     private void OnInvoiceSelected(object? sender, SelectionChangedEventArgs e)
     {
-        // Update selected invoices for multi-select
-        _vm.SelectedInvoices.Clear();
-        foreach (var item in e.CurrentSelection)
-        {
-            if (item is Invoice inv)
-                _vm.SelectedInvoices.Add(inv);
-        }
-
-        // Update detail panel based on last selected or single selection
+        // Update detail panel based on single selection (row click)
         if (e.CurrentSelection.LastOrDefault() is Invoice lastInvoice)
         {
             _vm.SelectedInvoice = lastInvoice;
@@ -1564,6 +1566,13 @@ public class MainPage : ContentPage
 
     private async void OnDeleteClicked(object? sender, EventArgs e)
     {
+        // Collect all selected invoices from IsSelected property
+        _vm.SelectedInvoices.Clear();
+        foreach (var inv in _vm.Invoices.Where(i => i.IsSelected))
+        {
+            _vm.SelectedInvoices.Add(inv);
+        }
+
         var selectedCount = _vm.SelectedInvoices.Count;
 
         // If nothing multi-selected, fall back to single selected invoice

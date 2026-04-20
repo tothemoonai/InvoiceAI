@@ -19,6 +19,10 @@ public class CloudKeyConfig
     public string? CerebrasEndpoint { get; set; }
     public string? CerebrasModel { get; set; }
 
+    public string? GoogleApiKey { get; set; }
+    public string? GoogleEndpoint { get; set; }
+    public string? GoogleModel { get; set; }
+
     public DateTime CachedAt { get; set; } = DateTime.UtcNow;
     public int Version { get; set; } = 1;
 }

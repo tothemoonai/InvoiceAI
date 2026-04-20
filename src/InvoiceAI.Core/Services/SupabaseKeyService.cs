@@ -43,6 +43,9 @@ public class SupabaseKeyService : ICloudKeyService
                     CerebrasApiKey = row.cerebras_apikey,
                     CerebrasEndpoint = row.cerebras_endpoint,
                     CerebrasModel = row.cerebras_model,
+                    GoogleApiKey = row.google_apikey,
+                    GoogleEndpoint = row.google_endpoint,
+                    GoogleModel = row.google_model,
                     Version = row.version ?? 1
                 };
 
@@ -96,7 +99,8 @@ public class SupabaseKeyService : ICloudKeyService
         bool hasValidGlmProvider =
             (!string.IsNullOrEmpty(config.ZhipuApiKey) && !string.IsNullOrEmpty(config.ZhipuModel)) ||
             (!string.IsNullOrEmpty(config.NvidiaApiKey) && !string.IsNullOrEmpty(config.NvidiaModel)) ||
-            (!string.IsNullOrEmpty(config.CerebrasApiKey) && !string.IsNullOrEmpty(config.CerebrasModel));
+            (!string.IsNullOrEmpty(config.CerebrasApiKey) && !string.IsNullOrEmpty(config.CerebrasModel)) ||
+            (!string.IsNullOrEmpty(config.GoogleApiKey) && !string.IsNullOrEmpty(config.GoogleModel));
 
         return hasValidOcr && hasValidGlmProvider;
     }
@@ -117,6 +121,9 @@ public class SupabaseKeyService : ICloudKeyService
         public string? cerebras_apikey { get; set; }
         public string? cerebras_endpoint { get; set; }
         public string? cerebras_model { get; set; }
+        public string? google_apikey { get; set; }
+        public string? google_endpoint { get; set; }
+        public string? google_model { get; set; }
         public int? version { get; set; }
     }
 }

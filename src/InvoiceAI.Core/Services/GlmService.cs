@@ -24,6 +24,15 @@ public class GlmService : IGlmService
 
     private void OnStatusChanged(string message) => StatusChanged?.Invoke(this, message);
 
+    private static string GetProviderDisplayName(string provider) => provider switch
+    {
+        "zhipu" => "智谱",
+        "nvidia" => "NVIDIA",
+        "cerebras" => "Cerebras",
+        "google" => "Google",
+        _ => provider
+    };
+
     private Dictionary<string, object> BuildRequestBody(string userMessage, int maxTokens, string provider, string model)
     {
         var body = new Dictionary<string, object>
@@ -70,6 +79,7 @@ public class GlmService : IGlmService
             : baseMaxTokens;
 
         // 从用户选择的模型开始，依次尝试
+        var providerName = GetProviderDisplayName(provider);
         for (int modelIdx = startIndex; modelIdx < models.Length; modelIdx++)
         {
             var model = models[modelIdx];
@@ -77,11 +87,11 @@ public class GlmService : IGlmService
             {
                 if (modelIdx > startIndex)
                 {
-                    OnStatusChanged($"⚠️ 模型 {models[modelIdx - 1].Name} 失败，切换到 {model.Name} ({modelIdx + 1}/{models.Length})...");
+                    OnStatusChanged($"⚠️ [{providerName}] 模型 {models[modelIdx - 1].Name} 失败，切换到 {model.Name} ({modelIdx + 1}/{models.Length})...");
                 }
-                else if (models.Length > 1)
+                else
                 {
-                    OnStatusChanged($"🤖 尝试模型 {model.Name} (第 {modelIdx + 1}/{models.Length} 个)...");
+                    OnStatusChanged($"🤖 [{providerName}] 使用模型 {model.Name} ({modelIdx + 1}/{models.Length})...");
                 }
 
                 return await CallGlmApiAsync(ocrTexts, apiKey, endpoint, model.Id, maxTokens, provider);

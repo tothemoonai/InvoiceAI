@@ -82,6 +82,17 @@ public static class MauiProgram
         builder.Services.AddTransient<Pages.MainPage>();
         builder.Services.AddTransient<Pages.SettingsPage>();
 
+        // Fix WinUI3 CheckBox minimum width issue
+        Microsoft.Maui.Handlers.CheckBoxHandler.Mapper.AppendToMapping("FixWindowsCheckBoxGap", (handler, view) =>
+        {
+#if WINDOWS
+            handler.PlatformView.MinWidth = 0;
+            handler.PlatformView.MinHeight = 0;
+            handler.PlatformView.Padding = new Microsoft.UI.Xaml.Thickness(0);
+            handler.PlatformView.Margin = new Microsoft.UI.Xaml.Thickness(0);
+#endif
+        });
+
         return builder.Build();
     }
 }

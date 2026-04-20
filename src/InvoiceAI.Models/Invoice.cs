@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace InvoiceAI.Models;
 
 public class Invoice
@@ -20,6 +22,11 @@ public class Invoice
     public string? OcrRawText { get; set; }
     public string? GlmRawResponse { get; set; }
     public bool IsConfirmed { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    [NotMapped]
+    public bool IsSelected { get; set; } // 用于UI多选，不存储到数据库
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

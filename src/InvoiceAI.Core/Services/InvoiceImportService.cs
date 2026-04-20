@@ -40,6 +40,9 @@ public class InvoiceImportService : IInvoiceImportService
         _fileService = fileService;
         _settingsService = settingsService;
         _fallbackManager = fallbackManager;
+
+        // Subscribe to GLM service status changes and forward them
+        _glmService.StatusChanged += (sender, message) => OnStatusChanged(message);
     }
 
     private void OnStatusChanged(string message) => StatusChanged?.Invoke(this, message);
@@ -158,7 +161,7 @@ public class InvoiceImportService : IInvoiceImportService
         if (ocrSuccessIndices.Count == 0) return;
 
         // Phase 3: GLM AI — with fallback logic
-        OnStatusChanged("🤖 正在进行 AI 分析...");
+        // Status will be updated by GLM service (shows provider and model)
         var ocrTexts = ocrSuccessIndices.Select(i => ocrResults[i].Text).ToArray();
         List<GlmInvoiceResponse>? glmResults = null;
 

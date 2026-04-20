@@ -200,7 +200,11 @@ public partial class MainViewModel : ObservableObject
                     }
                 }
                 if (savedCount > 0)
+                {
                     StatusMessage = $"已导出并自动保存 {savedCount} 张发票";
+                    // 刷新界面，移除已确认的发票
+                    await LoadDataAsync();
+                }
             }
         }
         catch (Exception ex)
