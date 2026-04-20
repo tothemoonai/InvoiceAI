@@ -33,6 +33,17 @@ public class GlmService : IGlmService
         _ => provider
     };
 
+    /// <summary>
+    /// Normalize model ID for OpenAI-compatible endpoints.
+    /// Google's native API uses "models/" prefix, but the OpenAI-compatible endpoint does not.
+    /// </summary>
+    private static string NormalizeModelId(string modelId, string provider)
+    {
+        if (provider == "google" && modelId.StartsWith("models/", StringComparison.OrdinalIgnoreCase))
+            return modelId["models/".Length..];
+        return modelId;
+    }
+
     private Dictionary<string, object> BuildRequestBody(string userMessage, int maxTokens, string provider, string model)
     {
         var body = new Dictionary<string, object>
@@ -181,7 +192,7 @@ public class GlmService : IGlmService
             var maxTokens = effectiveKeys.Source == "cloud" && effectiveKeys.GlmProvider == "zhipu" ? 100000 : 32768;
 
             var requestBody = BuildRequestBody(
-                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider, effectiveKeys.GlmModel);
+                InvoicePrompt.BuildUserMessage(ocrText), maxTokens, effectiveKeys.GlmProvider, NormalizeModelId(effectiveKeys.GlmModel, effectiveKeys.GlmProvider));
 
             using var request = new HttpRequestMessage(HttpMethod.Post, effectiveKeys.GlmEndpoint);
             request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {effectiveKeys.GlmApiKey}");
@@ -222,22 +233,57 @@ public class GlmService : IGlmService
     {
         if (ocrTexts.Length == 0) return [];
 
-        // 获取当前提供商的配置（包括所有模型）
-        var (apiKey, endpoint, models, selectedIndex, maxTokens) = _settingsService.Settings.Glm.GetActiveConfigWithModels();
-        var provider = _settingsService.Settings.Glm.Provider;
+        // 优先使用云端配置
+        var effectiveKeys = await _settingsService.GetEffectiveApiKeysAsync();
+        string provider;
+        string apiKey;
+        string endpoint;
+        string model;
+        int maxTokens;
 
-        // 使用模型循环尝试
-        try
+        if (effectiveKeys.Source == "cloud")
         {
-            return await ProcessWithModelFallbackAsync(ocrTexts, apiKey, endpoint, models, selectedIndex, maxTokens, provider);
+            // 使用云端配置（单模型模式）
+            provider = effectiveKeys.GlmProvider;
+            apiKey = effectiveKeys.GlmApiKey;
+            endpoint = effectiveKeys.GlmEndpoint;
+            model = NormalizeModelId(effectiveKeys.GlmModel, provider);
+            maxTokens = provider == "zhipu" ? 100000 : 32768;
+
+            // 云端配置使用单模型
+            var models = new[] { (model, model) };
+            try
+            {
+                return await ProcessWithModelFallbackAsync(ocrTexts, apiKey, endpoint, models, 0, maxTokens, provider);
+            }
+            catch (Exception ex)
+            {
+                Directory.CreateDirectory(LogDir);
+                await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_provider_error.txt"),
+                    $"Cloud provider {provider} failed: {ex}");
+                throw;
+            }
         }
-        catch (Exception ex)
+        else
         {
-            // 该提供商所有模型都失败了
-            Directory.CreateDirectory(LogDir);
-            await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_provider_error.txt"),
-                $"Provider {provider} all models failed: {ex}");
-            throw;
+            // 使用本地配置（多模型模式）
+            var (localApiKey, localEndpoint, models, selectedIndex, localMaxTokens) = _settingsService.Settings.Glm.GetActiveConfigWithModels();
+            provider = _settingsService.Settings.Glm.Provider;
+            apiKey = localApiKey;
+            endpoint = localEndpoint;
+            maxTokens = localMaxTokens;
+
+            try
+            {
+                return await ProcessWithModelFallbackAsync(ocrTexts, apiKey, endpoint, models, selectedIndex, maxTokens, provider);
+            }
+            catch (Exception ex)
+            {
+                Directory.CreateDirectory(LogDir);
+                await File.WriteAllTextAsync(Path.Combine(LogDir, "glm_provider_error.txt"),
+                    $"Local provider {provider} all models failed: {ex}");
+                throw;
+            }
         }
     }
 

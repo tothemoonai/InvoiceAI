@@ -225,6 +225,7 @@ public class SupabaseAuthService : IAuthService
         if (!string.IsNullOrEmpty(config.ZhipuApiKey)) return "zhipu";
         if (!string.IsNullOrEmpty(config.NvidiaApiKey)) return "nvidia";
         if (!string.IsNullOrEmpty(config.CerebrasApiKey)) return "cerebras";
+        if (!string.IsNullOrEmpty(config.GoogleApiKey)) return "google";
         return null;
     }
 }

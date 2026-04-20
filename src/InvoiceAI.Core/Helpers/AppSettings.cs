@@ -72,8 +72,8 @@ public class GlmSettings
         ("qwen-3-235b-a22b-instruct-2507", "Qwen-3-235B"),
     ];
     public static readonly (string Id, string Name)[] GoogleModels = [
-        ("models/gemma-4-31b-it", "Gemma-4-31B-IT"),
-        ("models/gemini-3.1-flash-lite-preview", "Gemini-3.1-Flash-Lite"),
+        ("gemma-4-31b-it", "Gemma-4-31B-IT"),
+        ("gemini-3.1-flash-lite-preview", "Gemini-3.1-Flash-Lite"),
     ];
 
     public (string Id, string Name)[] GetModelsForProvider() => Provider switch

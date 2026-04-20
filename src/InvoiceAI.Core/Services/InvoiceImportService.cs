@@ -280,6 +280,7 @@ public class InvoiceImportService : IInvoiceImportService
         "zhipu" => "智谱 (Zhipu)",
         "nvidia" => "NVIDIA NIM",
         "cerebras" => "Cerebras",
+        "google" => "Google",
         _ => providerId
     };
 
