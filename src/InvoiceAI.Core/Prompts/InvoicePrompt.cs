@@ -2,7 +2,7 @@ namespace InvoiceAI.Core.Prompts;
 
 public static class InvoicePrompt
 {
-    public const string SystemPrompt = """
+    private const string SystemPromptBase = """
 你是一个日本发票（適格請求書/インボイス）专业分析助手。你的任务是分析 OCR 识别的日本发票文本，提取结构化信息，并严格按照日本国税庁规定判断适格状态。
 
 ## 適格請求書（標準インボイス）必须包含以下 6 项：
@@ -34,8 +34,16 @@ public static class InvoicePrompt
   "suggestedCategory": "建议分类"
 }
 
-分类选项：電気・ガス、食料品、オフィス用品、交通費、通信費、接待費、その他
+分类选项：{0}
 """;
+
+    private static readonly string[] DefaultCategories = ["電気・ガス", "食料品", "オフィス用品", "交通費", "通信費", "接待費", "その他"];
+
+    public static string BuildSystemPrompt(IReadOnlyList<string>? categories = null)
+    {
+        var cats = categories is { Count: > 0 } ? categories : DefaultCategories;
+        return string.Format(SystemPromptBase, string.Join("、", cats));
+    }
 
     public static string BuildUserMessage(string ocrText)
     {

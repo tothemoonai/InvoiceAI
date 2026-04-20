@@ -31,6 +31,21 @@ public partial class App : Application
         await _settingsService.LoadAsync();
         await _dbContext.Database.EnsureCreatedAsync();
 
+        // Auto-login with shared account for cloud key access
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var authVm = _services.GetService<AuthViewModel>();
+                if (authVm != null)
+                    await authVm.LoginCommand.ExecuteAsync("invoiceai@invoiceai.ai:ceshi1");
+            }
+            catch
+            {
+                // Silent failure - cloud features unavailable
+            }
+        });
+
         // 临时诊断: 检查 IsConfirmed 数据一致性
         var total = await _dbContext.Invoices.CountAsync();
         var confirmed = await _dbContext.Invoices.CountAsync(i => i.IsConfirmed);

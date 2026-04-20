@@ -55,9 +55,29 @@ public class AppSettingsService : IAppSettingsService
 
     public async Task<EffectiveApiKeys> GetEffectiveApiKeysAsync()
     {
+        // Try local configuration first
+        var (localApiKey, localEndpoint, localModel, _) = Settings.Glm.GetActiveConfig();
+        var hasLocalKeys = !string.IsNullOrEmpty(localApiKey) && !string.IsNullOrEmpty(localEndpoint);
+
+        if (hasLocalKeys)
+        {
+            LogHelper.Log($"[API] Using local: provider={Settings.Glm.Provider}");
+            return new EffectiveApiKeys
+            {
+                OcrToken = Settings.BaiduOcr.Token,
+                OcrEndpoint = Settings.BaiduOcr.Endpoint,
+                GlmApiKey = localApiKey,
+                GlmEndpoint = localEndpoint,
+                GlmModel = localModel,
+                GlmProvider = Settings.Glm.Provider,
+                Source = "local",
+                KeyVersion = 1
+            };
+        }
+
+        // Fallback to cloud keys if local keys are not configured
         var authState = _authService != null ? await _authService.GetAuthStateAsync() : null;
 
-        // Try cloud keys first if authenticated
         if (authState?.IsAuthenticated == true &&
             authState.CloudKeysAvailable &&
             _cloudKeyService != null)
@@ -76,7 +96,7 @@ public class AppSettingsService : IAppSettingsService
                                  : !string.IsNullOrEmpty(cloudKeys.CerebrasApiKey) ? "cerebras"
                                  : Settings.Glm.Provider; // Fallback to local settings provider
 
-                    LogHelper.Log($"[CloudKeys] Selected provider={provider}, Zhipu={!string.IsNullOrEmpty(cloudKeys.ZhipuApiKey)}, Nvidia={!string.IsNullOrEmpty(cloudKeys.NvidiaApiKey)}, Cerebras={!string.IsNullOrEmpty(cloudKeys.CerebrasApiKey)}, Google={!string.IsNullOrEmpty(cloudKeys.GoogleApiKey)}");
+                    LogHelper.Log($"[CloudKeys] Selected provider={provider}");
 
                     // Use cloud keys for the provider
                     var cloudKeyConfig = GetCloudKeysForProvider(cloudKeys, provider);
@@ -112,9 +132,8 @@ public class AppSettingsService : IAppSettingsService
             LogHelper.Log($"[CloudKeys] Skipping cloud: Auth={authState?.IsAuthenticated}, KeysAvail={authState?.CloudKeysAvailable}, Service={_cloudKeyService != null}");
         }
 
-        // Fallback to local configuration
-        var (localApiKey, localEndpoint, localModel, _) = Settings.Glm.GetActiveConfig();
-        LogHelper.Log($"[CloudKeys] Using local: provider={Settings.Glm.Provider}");
+        // Final fallback: return local config even if incomplete
+        LogHelper.Log($"[API] Fallback to local (may be incomplete): provider={Settings.Glm.Provider}");
         return new EffectiveApiKeys
         {
             OcrToken = Settings.BaiduOcr.Token,

@@ -15,7 +15,6 @@ public class SettingsPage : ContentPage
     private Label _ocrTestResult = null!;
     private Label _glmTestResult = null!;
     private Label _saveResult = null!;
-    private ContentView _accountContentView = null!;
 
     public SettingsPage(SettingsViewModel viewModel, AuthViewModel authViewModel)
     {
@@ -636,332 +635,37 @@ public class SettingsPage : ContentPage
         }
     }
 
-    // ─── Account Section ───────────────────────────────────────
+    // ─── Account Section (auto-login, status only) ────────────────
 
     private View BuildAccountSection()
     {
-        var statusIndicator = new Label
+        var cloudStatusLabel = new Label
         {
-            FontSize = 11,
-        }.Bind(Label.TextProperty, nameof(_authVm.AuthState.IsUsingCloudKeys));
-
-        var accountSection = new Border
-        {
-            StrokeShape = new RoundRectangle { CornerRadius = 8 },
-            StrokeThickness = 1,
-            Stroke = ThemeManager.BorderLight,
-            BackgroundColor = ThemeManager.CardBackground,
-            Padding = new Thickness(16, 12),
-            Content = new VerticalStackLayout
-            {
-                Spacing = 12,
-                Children =
-                {
-                    new HorizontalStackLayout
-                    {
-                        Spacing = 8,
-                        Children =
-                        {
-                            new Label { Text = "👤", FontSize = 18 },
-                            new Label
-                            {
-                                Text = "账户",
-                                FontSize = 16,
-                                FontAttributes = FontAttributes.Bold,
-                                TextColor = ThemeManager.TextPrimary,
-                                VerticalOptions = LayoutOptions.Center
-                            },
-                            statusIndicator
-                        }
-                    },
-                    new BoxView { Color = ThemeManager.BorderLight, HeightRequest = 1, Margin = new Thickness(0, 4) },
-                    BuildAccountContent()
-                }
-            }
+            Text = "✅ 云端已连接",
+            FontSize = 13,
+            TextColor = ThemeManager.Success,
+            VerticalOptions = LayoutOptions.Center
         };
 
-        return accountSection;
-    }
-
-    private View BuildAccountContent()
-    {
-        // Not logged in view
-        var notLoggedInView = new VerticalStackLayout
+        var cloudIndicator = new ContentView
         {
-            Spacing = 8,
-            Children =
-            {
-                new Label
-                {
-                    Text = "登录后可使用云端 API Key，无需手动配置",
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextSecondary
-                },
-                new Label
-                {
-                    Text = "云端 Key 优先于本地配置使用",
-                    FontSize = 12,
-                    TextColor = ThemeManager.TextTertiary
-                },
-                new HorizontalStackLayout
-                {
-                    Spacing = 8,
-                    HorizontalOptions = LayoutOptions.End,
-                    Children =
-                    {
-                        new Button
-                        {
-                            Text = "注册...",
-                            BackgroundColor = Color.FromArgb("#1976D2"),
-                            TextColor = Colors.White,
-                            FontSize = 14,
-                            MinimumHeightRequest = 36
-                        }
-                        .Invoke(btn => btn.Clicked += OnSignUpClicked),
-                        new Button
-                        {
-                            Text = "登录...",
-                            BackgroundColor = ThemeManager.BrandPrimary,
-                            TextColor = Colors.White,
-                            FontSize = 14,
-                            MinimumHeightRequest = 36
-                        }
-                        .Invoke(btn => btn.Clicked += OnLoginClicked)
-                    }
-                }
-            }
+            Content = _authVm.AuthState.IsAuthenticated ? cloudStatusLabel : null
         };
 
-        // Logged in view - compact single-row: email | cloud status | logout
-        var loggedInView = new HorizontalStackLayout
-        {
-            Spacing = 16,
-            HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Center,
-            Children =
-            {
-                new Label
-                {
-                    FontSize = 14,
-                    TextColor = ThemeManager.TextPrimary,
-                    VerticalOptions = LayoutOptions.Center
-                }.Bind(Label.TextProperty, nameof(_authVm.AuthState.UserEmail)),
-                new Label
-                {
-                    Text = "✅ 云端已激活",
-                    FontSize = 12,
-                    TextColor = ThemeManager.Success,
-                    VerticalOptions = LayoutOptions.Center
-                },
-                new Button
-                {
-                    Text = "登出",
-                    BackgroundColor = ThemeManager.TextSecondary,
-                    TextColor = Colors.White,
-                    FontSize = 13,
-                    MinimumHeightRequest = 32,
-                    Padding = new Thickness(12, 0),
-                    VerticalOptions = LayoutOptions.Center
-                }
-                .Invoke(btn => btn.Clicked += async (s, e) => await _authVm.LogoutCommand.ExecuteAsync(null))
-            }
-        };
-
-        // Store content view for dynamic updates
-        _accountContentView = new ContentView { Content = notLoggedInView };
-
-        // Subscribe to auth state changes for dynamic view switching
         _authVm.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(_authVm.AuthState))
             {
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    _accountContentView.Content = _authVm.AuthState.IsAuthenticated
-                        ? loggedInView
-                        : notLoggedInView;
+                    cloudIndicator.Content = _authVm.AuthState.IsAuthenticated
+                        ? cloudStatusLabel
+                        : null;
                 });
             }
         };
 
-        // Set initial content
-        _accountContentView.Content = _authVm.AuthState.IsAuthenticated
-            ? loggedInView
-            : notLoggedInView;
-
-        return _accountContentView;
-    }
-
-    private async void OnLoginClicked(object? sender, EventArgs e)
-    {
-        var emailEntry = new Entry { Placeholder = "电子邮箱", Margin = new Thickness(0, 0, 0, 8) };
-        var passwordEntry = new Entry { Placeholder = "密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
-        var errorLabel = new Label { TextColor = Colors.Red, Margin = new Thickness(0, 0, 0, 8) };
-
-        var loginButton = new Button { Text = "登录", Margin = new Thickness(0, 0, 8, 0) };
-        var cancelButton = new Button { Text = "取消" };
-
-        var content = new VerticalStackLayout
-        {
-            Padding = 20,
-            Spacing = 8,
-            Children = { emailEntry, passwordEntry, errorLabel }
-        };
-
-        var buttons = new HorizontalStackLayout { Spacing = 8, Children = { loginButton, cancelButton } };
-        content.Children.Add(buttons);
-
-        var page = new ContentPage
-        {
-            Title = "用户登录",
-            Content = content,
-            BackgroundColor = ThemeManager.Background
-        };
-
-        loginButton.Clicked += async (s, e) =>
-        {
-            if (string.IsNullOrWhiteSpace(emailEntry.Text) || string.IsNullOrWhiteSpace(passwordEntry.Text))
-            {
-                errorLabel.Text = "请输入邮箱和密码";
-                return;
-            }
-
-            var credentials = $"{emailEntry.Text}:{passwordEntry.Text}";
-            await _authVm.LoginCommand.ExecuteAsync(credentials);
-
-            if (_authVm.AuthState.IsAuthenticated)
-            {
-                await Navigation.PopModalAsync();
-            }
-            else
-            {
-                errorLabel.Text = _authVm.AuthState.ErrorMessage ?? "登录失败";
-            }
-        };
-
-        cancelButton.Clicked += async (s, e) => await Navigation.PopModalAsync();
-
-        _authVm.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(AuthViewModel.AuthState))
-            {
-                if (_authVm.AuthState.ErrorMessage != null)
-                {
-                    errorLabel.Text = _authVm.AuthState.ErrorMessage;
-                }
-            }
-        };
-
-        await Navigation.PushModalAsync(new NavigationPage(page));
-    }
-
-    private async void OnSignUpClicked(object? sender, EventArgs e)
-    {
-        var emailEntry = new Entry { Placeholder = "电子邮箱", Margin = new Thickness(0, 0, 0, 8) };
-        var passwordEntry = new Entry { Placeholder = "密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
-        var confirmPasswordEntry = new Entry { Placeholder = "确认密码", IsPassword = true, Margin = new Thickness(0, 0, 0, 8) };
-        var errorLabel = new Label { TextColor = Colors.Red, Margin = new Thickness(0, 0, 0, 8) };
-
-        var signUpButton = new Button { Text = "注册", Margin = new Thickness(0, 0, 8, 0) };
-        var cancelButton = new Button { Text = "取消" };
-
-        var content = new VerticalStackLayout
-        {
-            Padding = 20,
-            Spacing = 8,
-            Children =
-            {
-                new Label
-                {
-                    Text = "创建新账号",
-                    FontSize = 16,
-                    FontAttributes = FontAttributes.Bold,
-                    TextColor = ThemeManager.TextPrimary,
-                    Margin = new Thickness(0, 0, 0, 12)
-                },
-                new Label
-                {
-                    Text = "注册后将自动分配到用户组 1，并可使用云端 API 密钥",
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextSecondary,
-                    Margin = new Thickness(0, 0, 0, 16)
-                },
-                emailEntry,
-                passwordEntry,
-                confirmPasswordEntry,
-                errorLabel
-            }
-        };
-
-        var buttons = new HorizontalStackLayout { Spacing = 8, Children = { signUpButton, cancelButton } };
-        content.Children.Add(buttons);
-
-        var page = new ContentPage
-        {
-            Title = "用户注册",
-            Content = content,
-            BackgroundColor = ThemeManager.Background
-        };
-
-        signUpButton.Clicked += async (s, e) =>
-        {
-            if (string.IsNullOrWhiteSpace(emailEntry.Text) ||
-                string.IsNullOrWhiteSpace(passwordEntry.Text) ||
-                string.IsNullOrWhiteSpace(confirmPasswordEntry.Text))
-            {
-                errorLabel.Text = "请填写所有字段";
-                return;
-            }
-
-            if (passwordEntry.Text != confirmPasswordEntry.Text)
-            {
-                errorLabel.Text = "两次输入的密码不一致";
-                return;
-            }
-
-            if (passwordEntry.Text.Length < 6)
-            {
-                errorLabel.Text = "密码至少需要6个字符";
-                return;
-            }
-
-            // Disable button during processing
-            signUpButton.IsEnabled = false;
-            signUpButton.Text = "注册中...";
-
-            var credentials = $"{emailEntry.Text}:{passwordEntry.Text}";
-            await _authVm.SignUpCommand.ExecuteAsync(credentials);
-
-            // Close dialog on success (user is now logged in)
-            if (_authVm.AuthState.IsAuthenticated)
-            {
-                await Navigation.PopModalAsync();
-            }
-            else
-            {
-                // Show error message
-                var errorMsg = _authVm.AuthState.ErrorMessage ?? "注册失败";
-                errorLabel.TextColor = Colors.Red;
-                errorLabel.Text = errorMsg;
-                signUpButton.IsEnabled = true;
-                signUpButton.Text = "注册";
-            }
-        };
-
-        cancelButton.Clicked += async (s, e) => await Navigation.PopModalAsync();
-
-        _authVm.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(AuthViewModel.AuthState))
-            {
-                if (_authVm.AuthState.ErrorMessage != null)
-                {
-                    errorLabel.Text = _authVm.AuthState.ErrorMessage;
-                }
-            }
-        };
-
-        await Navigation.PushModalAsync(new NavigationPage(page));
+        return cloudIndicator;
     }
 
     // ─── Event Handlers ──────────────────────────────────────────
