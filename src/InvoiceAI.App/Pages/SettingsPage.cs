@@ -72,37 +72,17 @@ public class SettingsPage : ContentPage
                     BuildAccountSection(),
 
                     // ─── PaddleOCR Settings ──────────────────────
-                    BuildSectionHeader("PaddleOCR 设置"),
+                    BuildSectionHeaderWithButton("PaddleOCR 设置", "测试连接", Color.FromArgb("#388E3C"), OnTestOcrClicked),
+                    _ocrTestResult,
                     BuildEntryField("Token", nameof(_vm.BaiduToken), "PaddleOCR Token"),
                     BuildEntryField("端点地址", nameof(_vm.BaiduEndpoint), "https://aistudio.baidu.com/..."),
-                    new Button
-                    {
-                        Text = "测试 OCR 连接",
-                        BackgroundColor = Color.FromArgb("#388E3C"),
-                        TextColor = Colors.White,
-                        FontSize = 13,
-                        MinimumHeightRequest = 36,
-                        HorizontalOptions = LayoutOptions.End
-                    }
-                    .Invoke(btn => btn.Clicked += OnTestOcrClicked),
-                    _ocrTestResult,
 
                     // ─── LLM Settings ────────────────────────────
-                    BuildSectionHeader("LLM API 设置"),
+                    BuildSectionHeaderWithButton("LLM API 设置", "测试连接", Color.FromArgb("#388E3C"), OnTestGlmClicked),
+                    _glmTestResult,
                     BuildProviderSelector(),
                     BuildModelPicker(),
                     BuildEntryField("API Key", nameof(_vm.GlmApiKey), "API Key", isPassword: true),
-                    new Button
-                    {
-                        Text = "测试 LLM 连接",
-                        BackgroundColor = Color.FromArgb("#388E3C"),
-                        TextColor = Colors.White,
-                        FontSize = 13,
-                        MinimumHeightRequest = 36,
-                        HorizontalOptions = LayoutOptions.End
-                    }
-                    .Invoke(btn => btn.Clicked += OnTestGlmClicked),
-                    _glmTestResult,
 
                     // ─── Language Settings ─────────────────────────
                     BuildSectionHeader("语言设置"),
@@ -172,6 +152,39 @@ public class SettingsPage : ContentPage
             FontAttributes = FontAttributes.Bold,
             TextColor = ThemeManager.TextPrimary,
             Margin = new Thickness(0, 16, 0, 4)
+        };
+    }
+
+    private static HorizontalStackLayout BuildSectionHeaderWithButton(string text, string buttonText, Color buttonColor, EventHandler onClick)
+    {
+        return new HorizontalStackLayout
+        {
+            Spacing = 12,
+            HorizontalOptions = LayoutOptions.Fill,
+            Margin = new Thickness(0, 16, 0, 4),
+            Children =
+            {
+                new Label
+                {
+                    Text = text,
+                    FontSize = 16,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = ThemeManager.TextPrimary,
+                    VerticalOptions = LayoutOptions.Center
+                },
+                new Button
+                {
+                    Text = buttonText,
+                    BackgroundColor = buttonColor,
+                    TextColor = Colors.White,
+                    FontSize = 12,
+                    MinimumHeightRequest = 28,
+                    Padding = new Thickness(10, 0),
+                    VerticalOptions = LayoutOptions.Center,
+                    HorizontalOptions = LayoutOptions.End
+                }
+                .Invoke(btn => btn.Clicked += onClick)
+            }
         };
     }
 
@@ -706,54 +719,36 @@ public class SettingsPage : ContentPage
             }
         };
 
-        // Logged in view - displays user email and status
-        var loggedInView = new VerticalStackLayout
+        // Logged in view - compact single-row: email | cloud status | logout
+        var loggedInView = new HorizontalStackLayout
         {
-            Spacing = 8,
+            Spacing = 16,
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Center,
             Children =
             {
                 new Label
                 {
-                    Text = "👤",
                     FontSize = 14,
-                    TextColor = ThemeManager.TextPrimary
-                },
-                new Label
-                {
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextPrimary
+                    TextColor = ThemeManager.TextPrimary,
+                    VerticalOptions = LayoutOptions.Center
                 }.Bind(Label.TextProperty, nameof(_authVm.AuthState.UserEmail)),
                 new Label
                 {
-                    Text = "🏷️ 用户组: ",
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextPrimary
-                },
-                new Label
-                {
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextPrimary
-                }.Bind(Label.TextProperty, nameof(_authVm.AuthState.UserGroup)),
-                new Label
-                {
-                    Text = "✅ 云端 API Key 已激活",
+                    Text = "✅ 云端已激活",
                     FontSize = 12,
-                    TextColor = ThemeManager.Success
-                },
-                new Label
-                {
-                    Text = "🔄 当前使用: 云端配置",
-                    FontSize = 12,
-                    TextColor = ThemeManager.Info
+                    TextColor = ThemeManager.Success,
+                    VerticalOptions = LayoutOptions.Center
                 },
                 new Button
                 {
                     Text = "登出",
                     BackgroundColor = ThemeManager.TextSecondary,
                     TextColor = Colors.White,
-                    FontSize = 14,
-                    HorizontalOptions = LayoutOptions.End,
-                    MinimumHeightRequest = 36
+                    FontSize = 13,
+                    MinimumHeightRequest = 32,
+                    Padding = new Thickness(12, 0),
+                    VerticalOptions = LayoutOptions.Center
                 }
                 .Invoke(btn => btn.Clicked += async (s, e) => await _authVm.LogoutCommand.ExecuteAsync(null))
             }
