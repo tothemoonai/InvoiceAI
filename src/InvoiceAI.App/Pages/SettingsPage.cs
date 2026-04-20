@@ -4,6 +4,7 @@ using InvoiceAI.App.Utils;
 using InvoiceAI.Core.ViewModels;
 using InvoiceAI.Models.Auth;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 
 namespace InvoiceAI.App.Pages;
 
@@ -522,9 +523,9 @@ public class SettingsPage : ContentPage
         };
         darkRadio.SetBinding(RadioButton.IsCheckedProperty, nameof(_vm.IsDarkTheme));
 
-        return new VerticalStackLayout
+        return new HorizontalStackLayout
         {
-            Spacing = 4,
+            Spacing = 16,
             Children = { autoRadio, lightRadio, darkRadio }
         };
     }
@@ -552,61 +553,21 @@ public class SettingsPage : ContentPage
         };
         addBtn.SetBinding(Button.CommandProperty, nameof(_vm.AddCategoryCommand));
 
-        // Use CollectionView with GridItemsLayout for 3 columns
-        var categoryList = new CollectionView
+        var categoryFlex = new FlexLayout
         {
-            ItemsSource = _vm.Categories,
-            MinimumHeightRequest = 60,
-            MaximumHeightRequest = 300,
-            ItemsLayout = new GridItemsLayout(3, ItemsLayoutOrientation.Horizontal)
-            {
-                HorizontalItemSpacing = 8,
-                VerticalItemSpacing = 8
-            },
-            ItemTemplate = new DataTemplate(() =>
-            {
-                var catLabel = new Label
-                {
-                    FontSize = 13,
-                    TextColor = ThemeManager.TextPrimary,
-                    VerticalOptions = LayoutOptions.Center,
-                    VerticalTextAlignment = TextAlignment.Center,
-                    LineBreakMode = LineBreakMode.TailTruncation
-                };
-                catLabel.SetBinding(Label.TextProperty, ".");
-
-                var removeBtn = new Button
-                {
-                    Text = "✕",
-                    BackgroundColor = Colors.Transparent,
-                    TextColor = ThemeManager.Error,
-                    FontSize = 12,
-                    MinimumWidthRequest = 20,
-                    MinimumHeightRequest = 20,
-                    Padding = new Thickness(0),
-                    VerticalOptions = LayoutOptions.Center
-                };
-                removeBtn.SetBinding(Button.CommandParameterProperty, ".");
-                removeBtn.SetBinding(Button.CommandProperty, nameof(_vm.RemoveCategoryCommand));
-
-                var chipContent = new HorizontalStackLayout
-                {
-                    Spacing = 4,
-                    Children = { catLabel, removeBtn }
-                };
-
-                return new Border
-                {
-                    Padding = new Thickness(8, 0),
-                    StrokeShape = new RoundRectangle { CornerRadius = 8 },
-                    StrokeThickness = 1,
-                    Stroke = ThemeManager.BrandPrimary,
-                    BackgroundColor = Color.FromArgb("#E3F2FD"),
-                    HorizontalOptions = LayoutOptions.Start,
-                    Content = chipContent
-                };
-            })
+            Wrap = FlexWrap.Wrap,
+            JustifyContent = FlexJustify.Start,
+            AlignItems = FlexAlignItems.Start,
+            VerticalOptions = LayoutOptions.Start
         };
+
+        RebuildCategoryChips(categoryFlex);
+
+        if (_vm.Categories is System.Collections.Specialized.INotifyCollectionChanged observable)
+        {
+            observable.CollectionChanged += (s, e) =>
+                MainThread.BeginInvokeOnMainThread(() => RebuildCategoryChips(categoryFlex));
+        }
 
         return new VerticalStackLayout
         {
@@ -618,9 +579,61 @@ public class SettingsPage : ContentPage
                     Spacing = 8,
                     Children = { newCategoryEntry, addBtn }
                 },
-                categoryList
+                categoryFlex
             }
         };
+    }
+
+    private void RebuildCategoryChips(FlexLayout flex)
+    {
+        flex.Children.Clear();
+        foreach (var cat in _vm.Categories)
+        {
+            flex.Children.Add(new Border
+            {
+                HeightRequest = 32,
+                Margin = new Thickness(0, 0, 8, 4),
+                Padding = new Thickness(10, 0, 4, 0),
+                StrokeShape = new RoundRectangle { CornerRadius = 8 },
+                StrokeThickness = 1,
+                Stroke = ThemeManager.BrandPrimary,
+                BackgroundColor = Color.FromArgb("#E3F2FD"),
+                HorizontalOptions = LayoutOptions.Start,
+                VerticalOptions = LayoutOptions.Start,
+                Content = new HorizontalStackLayout
+                {
+                    Spacing = 2,
+                    VerticalOptions = LayoutOptions.Center,
+                    Children =
+                    {
+                        new Label
+                        {
+                            Text = cat,
+                            FontSize = 13,
+                            TextColor = ThemeManager.TextPrimary,
+                            VerticalOptions = LayoutOptions.Center,
+                            VerticalTextAlignment = TextAlignment.Center,
+                            LineBreakMode = LineBreakMode.TailTruncation
+                        },
+                        new Button
+                        {
+                            Text = "✕",
+                            BackgroundColor = Colors.Transparent,
+                            TextColor = ThemeManager.Error,
+                            FontSize = 11,
+                            WidthRequest = 18,
+                            HeightRequest = 18,
+                            Padding = new Thickness(0),
+                            Margin = new Thickness(0),
+                            VerticalOptions = LayoutOptions.Center,
+                            HorizontalOptions = LayoutOptions.Center,
+                            Command = _vm.RemoveCategoryCommand,
+                            CommandParameter = cat
+                        }
+                    }
+                }
+            });
+        }
     }
 
     // ─── Account Section ───────────────────────────────────────
