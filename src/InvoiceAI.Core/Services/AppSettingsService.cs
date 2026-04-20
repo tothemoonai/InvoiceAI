@@ -69,11 +69,11 @@ public class AppSettingsService : IAppSettingsService
 
                 if (cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys))
                 {
-                    // Find which provider has keys in cloud config (priority: zhipu > nvidia > cerebras > google)
-                    var provider = !string.IsNullOrEmpty(cloudKeys.ZhipuApiKey) ? "zhipu"
+                    // Find which provider has keys in cloud config (priority: google > zhipu > nvidia > cerebras)
+                    var provider = !string.IsNullOrEmpty(cloudKeys.GoogleApiKey) ? "google"
+                                 : !string.IsNullOrEmpty(cloudKeys.ZhipuApiKey) ? "zhipu"
                                  : !string.IsNullOrEmpty(cloudKeys.NvidiaApiKey) ? "nvidia"
                                  : !string.IsNullOrEmpty(cloudKeys.CerebrasApiKey) ? "cerebras"
-                                 : !string.IsNullOrEmpty(cloudKeys.GoogleApiKey) ? "google"
                                  : Settings.Glm.Provider; // Fallback to local settings provider
 
                     LogHelper.Log($"[CloudKeys] Selected provider={provider}, Zhipu={!string.IsNullOrEmpty(cloudKeys.ZhipuApiKey)}, Nvidia={!string.IsNullOrEmpty(cloudKeys.NvidiaApiKey)}, Cerebras={!string.IsNullOrEmpty(cloudKeys.CerebrasApiKey)}, Google={!string.IsNullOrEmpty(cloudKeys.GoogleApiKey)}");

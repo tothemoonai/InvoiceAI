@@ -112,8 +112,9 @@ public partial class AuthViewModel : ObservableObject
 
     private string? GetFirstAvailableProvider(CloudKeyConfig config)
     {
-        if (!string.IsNullOrEmpty(config.NvidiaApiKey)) return "nvidia";
+        if (!string.IsNullOrEmpty(config.GoogleApiKey)) return "google";
         if (!string.IsNullOrEmpty(config.ZhipuApiKey)) return "zhipu";
+        if (!string.IsNullOrEmpty(config.NvidiaApiKey)) return "nvidia";
         if (!string.IsNullOrEmpty(config.CerebrasApiKey)) return "cerebras";
         return null;
     }
