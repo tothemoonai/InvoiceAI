@@ -55,17 +55,38 @@ public class AppSettingsService : IAppSettingsService
 
     public async Task<EffectiveApiKeys> GetEffectiveApiKeysAsync()
     {
-        // Try local configuration first
-        var (localApiKey, localEndpoint, localModel, _) = Settings.Glm.GetActiveConfig();
-        var hasLocalKeys = !string.IsNullOrEmpty(localApiKey) && !string.IsNullOrEmpty(localEndpoint);
+        // ── Step 1: Resolve OCR independently (local first, then cloud) ──
+        string ocrToken, ocrEndpoint;
 
-        if (hasLocalKeys)
+        if (!string.IsNullOrEmpty(Settings.BaiduOcr.Token) && !string.IsNullOrEmpty(Settings.BaiduOcr.Endpoint))
         {
-            LogHelper.Log($"[API] Using local: provider={Settings.Glm.Provider}");
+            ocrToken = Settings.BaiduOcr.Token;
+            ocrEndpoint = Settings.BaiduOcr.Endpoint;
+            LogHelper.Log($"[OCR] Using local: endpoint={ocrEndpoint}");
+        }
+        else
+        {
+            var cloudKeys = await GetCloudKeysAsync();
+            ocrToken = cloudKeys?.OcrToken ?? Settings.BaiduOcr.Token;
+            ocrEndpoint = cloudKeys?.OcrEndpoint ?? Settings.BaiduOcr.Endpoint;
+            LogHelper.Log($"[OCR] Using cloud: endpoint={ocrEndpoint}");
+        }
+
+        // ── Step 2: Resolve LLM independently (local first, then cloud) ──
+        // "Local LLM" = any provider has a non-empty API key
+        var hasLocalLlm = !string.IsNullOrEmpty(Settings.Glm.ApiKey)
+                       || !string.IsNullOrEmpty(Settings.Glm.NvidiaApiKey)
+                       || !string.IsNullOrEmpty(Settings.Glm.CerebrasApiKey)
+                       || !string.IsNullOrEmpty(Settings.Glm.GoogleApiKey);
+
+        if (hasLocalLlm)
+        {
+            var (localApiKey, localEndpoint, localModel, _) = Settings.Glm.GetActiveConfig();
+            LogHelper.Log($"[LLM] Using local: provider={Settings.Glm.Provider}");
             return new EffectiveApiKeys
             {
-                OcrToken = Settings.BaiduOcr.Token,
-                OcrEndpoint = Settings.BaiduOcr.Endpoint,
+                OcrToken = ocrToken,
+                OcrEndpoint = ocrEndpoint,
                 GlmApiKey = localApiKey,
                 GlmEndpoint = localEndpoint,
                 GlmModel = localModel,
@@ -75,76 +96,73 @@ public class AppSettingsService : IAppSettingsService
             };
         }
 
-        // Fallback to cloud keys if local keys are not configured
-        var authState = _authService != null ? await _authService.GetAuthStateAsync() : null;
-
-        if (authState?.IsAuthenticated == true &&
-            authState.CloudKeysAvailable &&
-            _cloudKeyService != null)
+        // No local LLM keys → try cloud
+        var cloudKeysForLlm = await GetCloudKeysAsync();
+        if (cloudKeysForLlm != null)
         {
-            try
-            {
-                var cloudKeys = await _cloudKeyService.GetCachedCloudKeysAsync();
-                LogHelper.Log($"[CloudKeys] Cached={cloudKeys != null}, Valid={cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys)}");
+            var provider = !string.IsNullOrEmpty(cloudKeysForLlm.GoogleApiKey) ? "google"
+                         : !string.IsNullOrEmpty(cloudKeysForLlm.ZhipuApiKey) ? "zhipu"
+                         : !string.IsNullOrEmpty(cloudKeysForLlm.NvidiaApiKey) ? "nvidia"
+                         : !string.IsNullOrEmpty(cloudKeysForLlm.CerebrasApiKey) ? "cerebras"
+                         : Settings.Glm.Provider;
 
-                if (cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys))
+            var cloudKeyConfig = GetCloudKeysForProvider(cloudKeysForLlm, provider);
+            if (cloudKeyConfig.HasValue)
+            {
+                var (cloudApiKey, cloudEndpoint, cloudModel) = cloudKeyConfig.Value;
+                LogHelper.Log($"[LLM] Using cloud: provider={provider}, model={cloudModel}");
+                return new EffectiveApiKeys
                 {
-                    // Find which provider has keys in cloud config (priority: google > zhipu > nvidia > cerebras)
-                    var provider = !string.IsNullOrEmpty(cloudKeys.GoogleApiKey) ? "google"
-                                 : !string.IsNullOrEmpty(cloudKeys.ZhipuApiKey) ? "zhipu"
-                                 : !string.IsNullOrEmpty(cloudKeys.NvidiaApiKey) ? "nvidia"
-                                 : !string.IsNullOrEmpty(cloudKeys.CerebrasApiKey) ? "cerebras"
-                                 : Settings.Glm.Provider; // Fallback to local settings provider
-
-                    LogHelper.Log($"[CloudKeys] Selected provider={provider}");
-
-                    // Use cloud keys for the provider
-                    var cloudKeyConfig = GetCloudKeysForProvider(cloudKeys, provider);
-                    if (cloudKeyConfig.HasValue)
-                    {
-                        var (cloudApiKey, cloudEndpoint, cloudModel) = cloudKeyConfig.Value;
-                        LogHelper.Log($"[CloudKeys] Using cloud: provider={provider}, endpoint={cloudEndpoint}, model={cloudModel}");
-                        return new EffectiveApiKeys
-                        {
-                            OcrToken = cloudKeys.OcrToken,
-                            OcrEndpoint = cloudKeys.OcrEndpoint,
-                            GlmApiKey = cloudApiKey,
-                            GlmEndpoint = cloudEndpoint,
-                            GlmModel = cloudModel,
-                            GlmProvider = provider,
-                            Source = "cloud",
-                            KeyVersion = cloudKeys.Version
-                        };
-                    }
-                    else
-                    {
-                        LogHelper.Log($"[CloudKeys] GetCloudKeysForProvider returned null for provider={provider}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[CloudKeys] Error fetching cloud keys: {ex.Message}");
+                    OcrToken = ocrToken,
+                    OcrEndpoint = ocrEndpoint,
+                    GlmApiKey = cloudApiKey,
+                    GlmEndpoint = cloudEndpoint,
+                    GlmModel = cloudModel,
+                    GlmProvider = provider,
+                    Source = "cloud",
+                    KeyVersion = cloudKeysForLlm.Version
+                };
             }
         }
-        else
-        {
-            LogHelper.Log($"[CloudKeys] Skipping cloud: Auth={authState?.IsAuthenticated}, KeysAvail={authState?.CloudKeysAvailable}, Service={_cloudKeyService != null}");
-        }
 
-        // Final fallback: return local config even if incomplete
-        LogHelper.Log($"[API] Fallback to local (may be incomplete): provider={Settings.Glm.Provider}");
+        // Final fallback: local config even if incomplete
+        var (fbApiKey, fbEndpoint, fbModel, _) = Settings.Glm.GetActiveConfig();
+        LogHelper.Log($"[LLM] Fallback to local (incomplete): provider={Settings.Glm.Provider}");
         return new EffectiveApiKeys
         {
-            OcrToken = Settings.BaiduOcr.Token,
-            OcrEndpoint = Settings.BaiduOcr.Endpoint,
-            GlmApiKey = localApiKey,
-            GlmEndpoint = localEndpoint,
-            GlmModel = localModel,
+            OcrToken = ocrToken,
+            OcrEndpoint = ocrEndpoint,
+            GlmApiKey = fbApiKey,
+            GlmEndpoint = fbEndpoint,
+            GlmModel = fbModel,
             GlmProvider = Settings.Glm.Provider,
             Source = "local",
             KeyVersion = 1
         };
+    }
+
+    private async Task<CloudKeyConfig?> GetCloudKeysAsync()
+    {
+        var authState = _authService != null ? await _authService.GetAuthStateAsync() : null;
+        if (authState?.IsAuthenticated != true || !authState.CloudKeysAvailable || _cloudKeyService == null)
+        {
+            LogHelper.Log($"[Cloud] Skipping: Auth={authState?.IsAuthenticated}, KeysAvail={authState?.CloudKeysAvailable}, Service={_cloudKeyService != null}");
+            return null;
+        }
+
+        try
+        {
+            var cloudKeys = await _cloudKeyService.GetCachedCloudKeysAsync();
+            if (cloudKeys != null && _cloudKeyService.IsCloudKeyValid(cloudKeys))
+                return cloudKeys;
+
+            LogHelper.Log($"[Cloud] Keys not available: Cached={cloudKeys != null}");
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Log($"[Cloud] Error: {ex.Message}");
+        }
+        return null;
     }
 
     private (string ApiKey, string Endpoint, string Model)? GetCloudKeysForProvider(CloudKeyConfig config, string provider)

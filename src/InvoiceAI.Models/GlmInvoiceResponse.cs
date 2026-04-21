@@ -38,6 +38,31 @@ public class FlexibleStringListConverter : JsonConverter<List<string>>
     }
 }
 
+/// <summary>
+/// Converts any JSON value (number, string, bool) to string.
+/// Handles LLM inconsistencies: "10%", 10, "1,000", 1000.5 → all become strings.
+/// </summary>
+public class FlexibleStringConverter : JsonConverter<string>
+{
+    public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return reader.TokenType switch
+        {
+            JsonTokenType.String => reader.GetString() ?? "",
+            JsonTokenType.Number => reader.GetDouble().ToString(),
+            JsonTokenType.True => "true",
+            JsonTokenType.False => "false",
+            JsonTokenType.Null => "",
+            _ => reader.GetString() ?? ""
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value);
+    }
+}
+
 public class GlmInvoiceResponse
 {
     [JsonPropertyName("issuerName")]
@@ -56,13 +81,16 @@ public class GlmInvoiceResponse
     public List<GlmInvoiceItem> Items { get; set; } = [];
 
     [JsonPropertyName("taxExcludedAmount")]
-    public decimal? TaxExcludedAmount { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string TaxExcludedAmount { get; set; } = string.Empty;
 
     [JsonPropertyName("taxIncludedAmount")]
-    public decimal? TaxIncludedAmount { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string TaxIncludedAmount { get; set; } = string.Empty;
 
     [JsonPropertyName("taxAmount")]
-    public decimal? TaxAmount { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string TaxAmount { get; set; } = string.Empty;
 
     [JsonPropertyName("recipientName")]
     public string? RecipientName { get; set; }
@@ -94,10 +122,12 @@ public class GlmInvoiceItem
     public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("amount")]
-    public decimal Amount { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string Amount { get; set; } = string.Empty;
 
     [JsonPropertyName("taxRate")]
-    public int TaxRate { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string TaxRate { get; set; } = string.Empty;
 
     [JsonPropertyName("isReducedRate")]
     public bool IsReducedRate { get; set; }

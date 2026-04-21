@@ -152,9 +152,9 @@ public class InvoiceImportService : IInvoiceImportService
                 ocrResults[i] = (batchPaths[i], text, hash);
                 ocrSuccessIndices.Add(i);
             }
-            catch
+            catch (Exception ocrEx)
             {
-                // OCR failed
+                LogHelper.Log($"[OCR] Failed for {Path.GetFileName(batchPaths[i])}: {ocrEx.Message}");
             }
         }
 
@@ -290,9 +290,9 @@ public class InvoiceImportService : IInvoiceImportService
             IssuerName = glm.IssuerName,
             RegistrationNumber = glm.RegistrationNumber,
             Description = glm.Description,
-            TaxExcludedAmount = glm.TaxExcludedAmount,
-            TaxIncludedAmount = glm.TaxIncludedAmount,
-            TaxAmount = glm.TaxAmount,
+            TaxExcludedAmount = ParseDecimal(glm.TaxExcludedAmount),
+            TaxIncludedAmount = ParseDecimal(glm.TaxIncludedAmount),
+            TaxAmount = ParseDecimal(glm.TaxAmount),
             RecipientName = glm.RecipientName,
             Category = glm.SuggestedCategory,
             SourceFilePath = filePath,
@@ -302,8 +302,25 @@ public class InvoiceImportService : IInvoiceImportService
             MissingFields = JsonSerializer.Serialize(glm.MissingFields),
             InvoiceType = glm.InvoiceType switch { "Standard" => InvoiceType.Standard, "Simplified" => InvoiceType.Simplified, _ => InvoiceType.NonQualified },
             ItemsJson = JsonSerializer.Serialize(glm.Items),
+            TransactionDate = ParseDate(glm.TransactionDate),
             IsConfirmed = false
         };
+    }
+
+    private static decimal? ParseDecimal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        // Remove currency symbols, commas, percentage signs
+        var cleaned = value.Replace(",", "").Replace("¥", "").Replace("円", "").Replace("%", "").Trim();
+        return decimal.TryParse(cleaned, out var result) ? result : null;
+    }
+
+    private static DateTime? ParseDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        // Handle formats: YYYY-MM-DD, YYYY-MM, YYYY/MM/DD, YYYY年MM月DD日
+        var cleaned = value.Replace("年", "-").Replace("月", "-").Replace("日", "").Replace("/", "-").Trim();
+        return DateTime.TryParse(cleaned, out var result) ? result : null;
     }
 
     private void HandleFallbackFailure(List<ImageItem> batchItems, ImportResult result, Exception ex)
