@@ -10,6 +10,7 @@
 - **Excel 导出**：一键导出所有发票数据到 Excel
 - **多语言支持**：中文 / 日本语界面
 - **云配置支持**：无须自定义
+<img width="778" height="533" alt="image" src="https://github.com/user-attachments/assets/ea2f62b7-9f35-4775-a374-64d989100ce4" />
 
 ## 系统要求
 
